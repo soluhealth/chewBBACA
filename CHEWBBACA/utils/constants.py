@@ -226,6 +226,11 @@ PARALOGOUS_LIST_HEADER = 'Genome\tLoci\tCDS'
 MISSING_HEADER = 'Index\tGenome\tLocus\tLocus_classification\tCDS\tCDS_classification'
 # Header for TSV file created by the GetAlleles module
 GETALLELES_LOCI_STATS_HEADER = 'Locus\tTotal alleles in schema\tSamples with locus\tDistinct alleles in dataset'
+# Filenames for the files created by the ComputeMSA module
+COMPUTEMSA_PROTEIN_CONCAT = 'protein_concat.fasta'
+COMPUTEMSA_DNA_CONCAT = 'dna_concat.fasta'
+COMPUTEMSA_PROTEIN_MSA = 'protein_msa.fasta'
+COMPUTEMSA_DNA_MSA = 'dna_msa.fasta'
 
 # Allele calling classifications
 ALLELECALL_CLASSIFICATIONS = ['EXC', 'INF', 'PLOT3', 'PLOT5',
