@@ -11,6 +11,7 @@ Code documentation
 """
 
 
+
 import os
 import sys
 
@@ -156,12 +157,12 @@ def convert_msa_to_dna(input_file, dna_file, output_file, gap_char):
 	return output_file
 
 
-def determine_variable_positions(msa_files, output_files, gap_char, ambiguous_chars, ignore_missing=True, exclude_if_missing=True):
+def determine_variable_positions(msa_files, output_files, gap_char, ambiguous_chars, ignore_gaps, exclude_if_gaps, ignore_ambiguous, exclude_if_ambiguous):
 	"""
 	"""
 	# Determine variable positions for protein MSAs
 	variable_loci = []
-	non_variable = []
+	non_variable_loci = []
 	for fi, file in enumerate(msa_files):
 		# Read MSA
 		msa_records = fao.import_sequences(file)
@@ -172,32 +173,40 @@ def determine_variable_positions(msa_files, output_files, gap_char, ambiguous_ch
 		for i, pos in enumerate(zipped):
 			# Get unique characters in position
 			distinct = set(pos)
-			# Exclude position if any sequence has a gap or missing data (N)
-			if exclude_if_missing:
-				if gap_char in distinct or any([ac in distinct for ac in ambiguous_chars]):
-					continue
-			# Optionally ignore gaps and missing data (N)
-			# This will only consider positions with gaps or Ns as variable if there are other characters in the position
-			if ignore_missing:
-				if '-' in distinct:
-					distinct.remove('-')
-				if 'N' in distinct:
-					distinct.remove('N')
+
+			# Exclude position if any sequence has a gap or an ambiguous char
+			if exclude_if_gaps and gap_char in distinct:
+				continue
+			if exclude_if_ambiguous and any([c in distinct for c in ambiguous_chars]):
+				continue
+
+			# Optionally ignore gaps and ambiguous chars
+			# This will only consider positions with gaps or ambiguous bases if there are other characters in the position
+			if ignore_gaps and gap_char in distinct:
+				distinct.remove('-')
+			if ignore_ambiguous and any([c in distinct for c in ambiguous_chars]):
+				for c in ambiguous_chars:
+					if c in distinct:
+						distinct.remove(c)
+
 			# If there are more than 1 unique character, it is a variable position
 			if len(distinct) > 1:
 				variable.append([i, pos])
+
+		# Save variable positions
+		# Create FASTA records with only variable positions
+		# If no variable positions, do not create file
 		if len(variable) > 0:
 			variable_pos = list(zip(*[i[1] for i in variable]))
 			variable_pos = [''.join(i) for i in variable_pos]
 			variable_records = [[allele_id, variable_pos[i]] for i, allele_id in enumerate(msa_records.keys())]
 			variable_records = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, variable_records)
-			# Save variable positions
 			fo.write_lines(variable_records, output_files[fi])
 			variable_loci.append(output_files[fi])
 		else:
-			non_variable.append(output_files[fi])
+			non_variable_loci.append(output_files[fi])
 
-	return variable_loci, non_variable
+	return variable_loci, non_variable_loci
 
 
 def create_full_msa(input_files, output_directory, loci_ids, sample_ids, results_alleles):
@@ -233,16 +242,22 @@ schema_directory = '/home/rmamede/test_chewie/features/ComputeMSA/spyogenes_data
 output_directory = '/home/rmamede/test_chewie/features/ComputeMSA/spyogenes_data/results_msa'
 dna_msa = True
 output_variable = True
-gap_char = '-'
+gap_char = ct.GAP_CHAR
+protein_ambiguous_chars = ct.PROTEIN_AMBIGUOUS_CHARS
+dna_ambiguous_chars = ct.DNA_AMBIGUOUS_CHARS
 translation_table = 11
 cpu_cores = 12
-keep_locus_msa = False
-only_locus_msa = False
-ignore_missing = True
-exclude_missing = True
-protein_ambiguous_chars = ['B', 'Z', 'X', 'J']
-dna_ambiguous_chars = ['R', 'Y', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V', 'N']
-def main(input_file, schema_directory, output_directory, dna_msa, output_variable, gap_char, protein_ambiguous_chars, dna_ambiguous_chars, translation_table, cpu_cores, keep_locus_msa, only_locus_msa, ignore_missing, exclude_missing):
+keep_loci_msas = False
+only_loci_msas = False
+ignore_gaps = True
+exclude_if_gaps = True
+ignore_ambiguous = True
+exclude_if_ambiguous = True
+custom_mafft_params = None
+def main(input_file, schema_directory, output_directory, dna_msa, output_variable, gap_char,
+		 protein_ambiguous_chars, dna_ambiguous_chars, translation_table, cpu_cores, keep_loci_msas,
+		 only_loci_msas, ignore_gaps, exclude_if_gaps, ignore_ambiguous, exclude_if_ambiguous,
+		 custom_mafft_params):
 	# Create output directory
 	fo.create_directory(output_directory)
 	# Get sample IDs
@@ -264,7 +279,7 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 	mafft_outfiles = [os.path.basename(file) for file in protein_files]
 	mafft_outfiles = [fo.join_paths(mafft_outdir, [file]) for file in mafft_outfiles]
 	mafft_inputs = [[file, mafft_outfiles[i]] for i, file in enumerate(protein_files)]
-	common_args = []
+	common_args = [custom_mafft_params]
 	# Add common arguments to all sublists
 	inputs = im.multiprocessing_inputs(mafft_inputs, common_args, mw.call_mafft)
 	mafft_results = mo.map_async_parallelizer(inputs,
@@ -284,7 +299,8 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 	gapped_outdir = fo.join_paths(output_directory, ['gapped_MSAs'])
 	fo.create_directory(gapped_outdir)
 
-	# Add gap sequences when sample did not have an allele
+	# Add gap sequences when samples did not have an allele identified
+	# This will create a MSA with all samples for each locus (some samples will have only gaps)
 	gapped_inputs = []
 	for file in mafft_success:
 		locus_id = fo.file_basename(file, False).split('_protein')[0]
@@ -328,18 +344,22 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 		# Define paths to output files
 		variable_protein_outfiles = [fo.file_basename(file).replace('_gapped', '_variable') for file in gapped_results]
 		variable_protein_outfiles = [fo.join_paths(variable_outfolder, [file]) for file in variable_protein_outfiles]
-		variable_protein, non_variable_protein = determine_variable_positions(gapped_results, variable_protein_outfiles, gap_char, protein_ambiguous_chars, ignore_missing=ignore_missing, exclude_if_missing=exclude_missing)
+		variable_protein, non_variable_protein = determine_variable_positions(gapped_results, variable_protein_outfiles,
+																		gap_char, protein_ambiguous_chars, ignore_gaps, exclude_if_gaps, ignore_ambiguous, exclude_if_ambiguous)
 
 		# Determine variable positions for DNA MSAs
 		if dna_msa:
 			variable_dna_outfiles = [fo.file_basename(file).replace('_gapped', '_variable') for file in dna_results]
 			variable_dna_outfiles = [fo.join_paths(variable_outfolder, [file]) for file in variable_dna_outfiles]
-			variable_dna, non_variable_dna = determine_variable_positions(dna_results, variable_dna_outfiles, gap_char, dna_ambiguous_chars, ignore_missing=ignore_missing, exclude_if_missing=exclude_missing)
+			variable_dna, non_variable_dna = determine_variable_positions(dna_results, variable_dna_outfiles,
+																 gap_char, dna_ambiguous_chars, ignore_gaps, exclude_if_gaps, ignore_ambiguous, exclude_if_ambiguous)
 
-	# User only wants the locus MSAs
+	# User only wants the loci MSAs
 	# Do not compute full MSAs
-	if only_locus_msa:
-		return
+	if only_loci_msas:
+		print('\nOnly loci MSAs were requested. Full MSAs will not be computed.')
+		print(f'Results are in {output_directory}')
+		sys.exit(0)
 
 	# Create folder to store sample MSAs
 	sample_protein_msas_folder = fo.join_paths(output_directory, ['sample_protein_MSAs'])

@@ -50,7 +50,7 @@ except ModuleNotFoundError:
 	from CHEWBBACA.UniprotFinder import annotate_schema
 	from CHEWBBACA.ExtractCgMLST import determine_cgmlst
 	from CHEWBBACA.GetAlleles import get_alleles
-	from chewBBACA.ComputeMSA import compute_msa
+	from CHEWBBACA.ComputeMSA import compute_msa
 	from CHEWBBACA.utils import (join_profiles,
 								 remove_genes,
 								 gene_prediction as gp,
@@ -1288,7 +1288,19 @@ def run_compute_msa():
 
 	parser.add_argument('-i', '--input-file', type=str,
 						required=True, dest='input_file',
-						help='Path to the TSV file with allelic profiles.')
+						help='Path to a TSV file containing allelic profiles or '
+							 'to a folder containing FASTA files. If a TSV file '
+							 'is provided, the MSA is computed based on the allelic '
+							 'profiles and it is necessary to provide the path to the '
+							 'schema to the `--schema-directory` parameter. If a '
+							 'folder is provided, the module computes a MSA for each '
+							 'FASTA file in the folder. In this case, it is not '
+							 'necessary to pass the schema path. The module will '
+							 'attempt to join the MSAs computed for all FASTA '
+							 'files to compute a full MSA. If you simply wish to '
+							 'compute MSAs for each FASTA file independently, use '
+							 'the --only-locus-msa option ().'
+							 )
 
 	parser.add_argument('-g', '--schema-directory', type=str,
 						required=True, dest='schema_directory',

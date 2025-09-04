@@ -21,15 +21,18 @@ except ModuleNotFoundError:
 	from CHEWBBACA.utils import constants as ct
 
 
-def call_mafft(input_file, output_file):
+def call_mafft(input_file, output_file, custom_mafft_params=None):
 	"""Call MAFFT to compute a MSA.
 
 	Parameters
 	----------
 	input_file : str
-		Path to a FASTA file with the sequences to align.
+		Path to a FASTA file with the sequences to align using MAFFT.
 	output_file : str
-		Path to the output file created by MAFFT.
+		Path to the output file created by MAFFT with the MSA.
+	custom_mafft_params : list, optional
+		List of custom parameters to pass to MAFFT. If None, default
+		parameters will be used. Default is None.
 
 	Returns
 	-------
@@ -42,8 +45,11 @@ def call_mafft(input_file, output_file):
 	stderr : bytes
 		MAFFT stderr.
 	"""
-	mafft_cmd = [ct.MAFFT_ALIAS, '--thread', '1', '--treeout', '--retree', '1',
-				 '--maxiterate', '0', input_file, '>', output_file]
+	if not custom_mafft_params:
+		mafft_cmd = [ct.MAFFT_ALIAS] + ct.MAFFT_DEFAULT_PARAMETERS + [input_file, '>', output_file]
+	else:
+		mafft_cmd = [ct.MAFFT_ALIAS] + custom_mafft_params + [input_file, '>', output_file]
+	# Join command list into single string
 	mafft_cmd = ' '.join(mafft_cmd)
 
 	# Must include subprocess.PIPE to get stdout and stderr
