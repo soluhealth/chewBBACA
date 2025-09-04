@@ -230,7 +230,9 @@ GETALLELES_LOCI_STATS_HEADER = 'Locus\tTotal alleles in schema\tSamples with loc
 COMPUTEMSA_PROTEIN_CONCAT = 'protein_concat.fasta'
 COMPUTEMSA_DNA_CONCAT = 'dna_concat.fasta'
 COMPUTEMSA_PROTEIN_MSA = 'protein_msa.fasta'
+COMPUTEMSA_PROTEIN_MSA_VARIABLE = 'protein_msa_variable.fasta'
 COMPUTEMSA_DNA_MSA = 'dna_msa.fasta'
+COMPUTEMSA_DNA_MSA_VARIABLE = 'dna_msa_variable.fasta'
 
 # Allele calling classifications
 ALLELECALL_CLASSIFICATIONS = ['EXC', 'INF', 'PLOT3', 'PLOT5',

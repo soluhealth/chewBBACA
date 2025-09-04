@@ -236,9 +236,8 @@ only_locus_msa = False
 def main(input_file, schema_directory, output_directory, dna_msa, output_variable, gap_char, translation_table, cpu_cores, keep_locus_msa, only_locus_msa):
 	# Create output directory
 	fo.create_directory(output_directory)
-	# Get sample and loci IDs
+	# Get sample IDs
 	sample_ids = fo.extract_column(input_file, delimiter='\t', column_index=0)
-	loci_ids = fo.read_lines(input_file, strip=True, num_lines=1)[0].split('\t')[1:]
 
 	# Create FASTA files with the alleles identified in the dataset
 	# Call GetAlleles module
@@ -367,3 +366,37 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 	# Delete folders with sample MSAs
 	fo.delete_directory(sample_protein_MSA_outfiles)
 	fo.delete_directory(sample_dna_msas_folder)
+
+	# Create full MSAs with only variable positions if requested
+	if output_variable:
+		sample_protein_variable_msas_folder = fo.join_paths(output_directory, ['sample_protein_variable_MSAs'])
+		fo.create_directory(sample_protein_variable_msas_folder)
+
+		# Create the full protein MSA for the variable positions
+		print('\nCreating file with the full protein MSA for the variable positions...')
+		# Get loci IDs for which a gapped protein MSA was created and had variable positions
+		variable_results_loci_ids = [fo.file_basename(file).split('_protein_variable')[0] for file in variable_protein]
+		sample_protein_variable_MSA_outfiles = create_full_msa(variable_protein, sample_protein_variable_msas_folder, variable_results_loci_ids, sample_ids, input_file)
+		# Concatenate sample protein alignments
+		full_variable_protein_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_PROTEIN_MSA_VARIABLE])
+		fo.concatenate_files(sample_protein_variable_MSA_outfiles, full_variable_protein_alignment)
+
+		# Get length of the full alignment
+		protein_variable_msa_length = len(fo.read_lines(full_variable_protein_alignment, strip=True, num_lines=2)[1])
+		print(f'Protein variable MSA length: {protein_variable_msa_length}')
+
+		if dna_msa:
+			sample_dna_variable_msas_folder = fo.join_paths(output_directory, ['sample_dna_variable_MSAs'])
+			fo.create_directory(sample_dna_variable_msas_folder)
+			# Create the full DNA MSA
+			print('Creating file with the full DNA MSA for the variable positions...')
+			# Get loci IDs for which a gapped DNA MSA was created and had variable positions
+			variable_results_loci_ids = [fo.file_basename(file).split('_dna_variable')[0] for file in variable_dna]
+			sample_dna_variable_MSA_outfiles = create_full_msa(variable_dna, sample_dna_variable_msas_folder, variable_results_loci_ids, sample_ids, input_file)
+			# Concatenate sample dna alignments
+			full_variable_dna_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_DNA_MSA_VARIABLE])
+			fo.concatenate_files(sample_dna_variable_MSA_outfiles, full_variable_dna_alignment)
+
+			# Get length of the full alignment
+			dna_variable_msa_length = len(fo.read_lines(full_variable_dna_alignment, strip=True, num_lines=2)[1])
+			print(f'Protein MSA length: {dna_variable_msa_length}')
