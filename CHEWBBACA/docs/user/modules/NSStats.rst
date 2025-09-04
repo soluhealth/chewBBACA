@@ -10,7 +10,9 @@ Retrieve the list of species and the total number of schemas, loci and alleles p
 
 ::
 
-    $ chewBBACA.py NSStats -m species
+    chewBBACA.py NSStats -m species
+
+::
 
     ------------------------------------------------------------------------------
     Species                             id       #schemas     #loci      #alleles 
@@ -29,7 +31,9 @@ Retrieve the list of schemas for a species and the total number of loci and alle
 
 ::
 
-    $ chewBBACA.py NSStats -m schemas --sp 4
+    chewBBACA.py NSStats -m schemas --sp 4
+
+::
 
     Salmonella enterica (id=4)
     ------------------------------------------------------------------
@@ -43,7 +47,9 @@ Retrieve property values for a schema:
 
 ::
 
-    $ chewBBACA.py NSStats -m schemas --sp 4 --sc 2
+    chewBBACA.py NSStats -m schemas --sp 4 --sc 2
+
+::
 
     -------------------------------------
     Salmonella enterica - INNUENDO_cgMLST

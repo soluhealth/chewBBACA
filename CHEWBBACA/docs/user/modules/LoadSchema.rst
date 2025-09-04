@@ -95,25 +95,25 @@ To upload a schema for *Escherichia coli*, we could run one of the following com
 
 ::
 
-	$ chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp 9 -sn cgMLST_95 -lp cgMLST_95
+	chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp 9 -sn cgMLST_95 -lp cgMLST_95
 
 - Providing the species name:
 
 ::
 
-	$ chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp "Escherichia coli" -sn cgMLST_95 -lp cgMLST_95
+	chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp "Escherichia coli" -sn cgMLST_95 -lp cgMLST_95
 
 To upload a schema and provide a description and annotations:
 
 ::
 
-    $ chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp 9 -sn cgMLST_95 -lp cgMLST_95 --df description.txt --a annotations.tsv
+    chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp 9 -sn cgMLST_95 -lp cgMLST_95 --df description.txt --a annotations.tsv
 
 To continue an upload that was interrupted or that aborted, we should provide the command used in the process that failed and add the ``--continue_up`` argument
 
 ::
 
-    $ chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp 9 -sn cgMLST_95 -lp cgMLST_95 --continue_up
+    chewBBACA.py LoadSchema -i path/to/SchemaFolder -sp 9 -sn cgMLST_95 -lp cgMLST_95 --continue_up
 
 .. important::
 	If you cannot complete schema upload or if the information in the website is incorrect or missing, please contact us via e-mail: imm-bioinfo@medicina.ulisboa.pt

@@ -156,7 +156,7 @@ def convert_msa_to_dna(input_file, dna_file, output_file, gap_char):
 	return output_file
 
 
-def determine_variable_positions(msa_files, output_files, ignore_missing=True):
+def determine_variable_positions(msa_files, output_files, gap_char, ambiguous_chars, ignore_missing=True, exclude_if_missing=True):
 	"""
 	"""
 	# Determine variable positions for protein MSAs
@@ -172,7 +172,12 @@ def determine_variable_positions(msa_files, output_files, ignore_missing=True):
 		for i, pos in enumerate(zipped):
 			# Get unique characters in position
 			distinct = set(pos)
+			# Exclude position if any sequence has a gap or missing data (N)
+			if exclude_if_missing:
+				if gap_char in distinct or any([ac in distinct for ac in ambiguous_chars]):
+					continue
 			# Optionally ignore gaps and missing data (N)
+			# This will only consider positions with gaps or Ns as variable if there are other characters in the position
 			if ignore_missing:
 				if '-' in distinct:
 					distinct.remove('-')
@@ -233,7 +238,11 @@ translation_table = 11
 cpu_cores = 12
 keep_locus_msa = False
 only_locus_msa = False
-def main(input_file, schema_directory, output_directory, dna_msa, output_variable, gap_char, translation_table, cpu_cores, keep_locus_msa, only_locus_msa):
+ignore_missing = True
+exclude_missing = True
+protein_ambiguous_chars = ['B', 'Z', 'X', 'J']
+dna_ambiguous_chars = ['R', 'Y', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V', 'N']
+def main(input_file, schema_directory, output_directory, dna_msa, output_variable, gap_char, protein_ambiguous_chars, dna_ambiguous_chars, translation_table, cpu_cores, keep_locus_msa, only_locus_msa, ignore_missing, exclude_missing):
 	# Create output directory
 	fo.create_directory(output_directory)
 	# Get sample IDs
@@ -319,13 +328,13 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 		# Define paths to output files
 		variable_protein_outfiles = [fo.file_basename(file).replace('_gapped', '_variable') for file in gapped_results]
 		variable_protein_outfiles = [fo.join_paths(variable_outfolder, [file]) for file in variable_protein_outfiles]
-		variable_protein, non_variable_protein = determine_variable_positions(gapped_results, variable_protein_outfiles)
+		variable_protein, non_variable_protein = determine_variable_positions(gapped_results, variable_protein_outfiles, gap_char, protein_ambiguous_chars, ignore_missing=ignore_missing, exclude_if_missing=exclude_missing)
 
 		# Determine variable positions for DNA MSAs
 		if dna_msa:
 			variable_dna_outfiles = [fo.file_basename(file).replace('_gapped', '_variable') for file in dna_results]
 			variable_dna_outfiles = [fo.join_paths(variable_outfolder, [file]) for file in variable_dna_outfiles]
-			variable_dna, non_variable_dna = determine_variable_positions(dna_results, variable_dna_outfiles)
+			variable_dna, non_variable_dna = determine_variable_positions(dna_results, variable_dna_outfiles, gap_char, dna_ambiguous_chars, ignore_missing=ignore_missing, exclude_if_missing=exclude_missing)
 
 	# User only wants the locus MSAs
 	# Do not compute full MSAs
@@ -349,6 +358,9 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 	protein_msa_length = len(fo.read_lines(full_protein_alignment, strip=True, num_lines=2)[1])
 	print(f'Protein MSA length: {protein_msa_length}')
 
+	# Delete folder with intermediate sample protein MSAs
+	fo.delete_directory(sample_protein_msas_folder)
+
 	if dna_msa:
 		sample_dna_msas_folder = fo.join_paths(output_directory, ['sample_dna_MSAs'])
 		fo.create_directory(sample_dna_msas_folder)
@@ -356,15 +368,18 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 		print('Creating file with the full DNA MSA...')
 		sample_dna_MSA_outfiles = create_full_msa(dna_results, sample_dna_msas_folder, gapped_results_loci_ids, sample_ids, input_file)
 		# Concatenate sample dna alignments
-		full_dna_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_DNA_CONCAT])
+		full_dna_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_DNA_MSA])
 		fo.concatenate_files(sample_dna_MSA_outfiles, full_dna_alignment)
 
 		# Get length of the full alignment
 		dna_msa_length = len(fo.read_lines(full_dna_alignment, strip=True, num_lines=2)[1])
 		print(f'Protein MSA length: {dna_msa_length}')
 
+		# Delete folder with intermediate sample DNA MSAs
+		fo.delete_directory(sample_dna_msas_folder)
+
 	# Delete folders with sample MSAs
-	fo.delete_directory(sample_protein_MSA_outfiles)
+	fo.delete_directory(sample_protein_msas_folder)
 	fo.delete_directory(sample_dna_msas_folder)
 
 	# Create full MSAs with only variable positions if requested
@@ -385,6 +400,9 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 		protein_variable_msa_length = len(fo.read_lines(full_variable_protein_alignment, strip=True, num_lines=2)[1])
 		print(f'Protein variable MSA length: {protein_variable_msa_length}')
 
+		# Delete folder with intermediate sample protein variable MSAs
+		fo.delete_directory(sample_protein_variable_msas_folder)
+
 		if dna_msa:
 			sample_dna_variable_msas_folder = fo.join_paths(output_directory, ['sample_dna_variable_MSAs'])
 			fo.create_directory(sample_dna_variable_msas_folder)
@@ -400,3 +418,10 @@ def main(input_file, schema_directory, output_directory, dna_msa, output_variabl
 			# Get length of the full alignment
 			dna_variable_msa_length = len(fo.read_lines(full_variable_dna_alignment, strip=True, num_lines=2)[1])
 			print(f'Protein MSA length: {dna_variable_msa_length}')
+
+			# Delete folder with intermediate sample DNA variable MSAs
+			fo.delete_directory(sample_dna_variable_msas_folder)
+
+	# Delete folders with gapped MSAs for full and only variable positions
+	fo.delete_directory(gapped_outdir)
+	fo.delete_directory(variable_outfolder)

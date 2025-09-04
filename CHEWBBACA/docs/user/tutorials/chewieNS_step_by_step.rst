@@ -81,7 +81,7 @@ To upload the schema included in the *Streptococcus agalactiae* dataset, you can
 
 ::
 
-    $ chewBBACA.py LoadSchema -i sagalactiae_schema/ -sp 1 -sn tut -lp tut --df sagalactiae_description.md --a sagalactiae_annotations.tsv --ns tutorial
+    chewBBACA.py LoadSchema -i sagalactiae_schema/ -sp 1 -sn tut -lp tut --df sagalactiae_description.md --a sagalactiae_annotations.tsv --ns tutorial
 
 ::
 
@@ -171,7 +171,7 @@ To download the schema you have uploaded, please run the following command:
 
 ::
 
-    $ chewBBACA.py DownloadSchema -sp 1 -sc 1 -o sagalactiae_ns --ns tutorial
+    chewBBACA.py DownloadSchema -sp 1 -sc 1 -o sagalactiae_ns --ns tutorial
 
 ::
 
@@ -198,7 +198,9 @@ If you open any FASTA file in the schema that you have downloaded, you will find
 
 ::
 
-    $ cat tut-00000001.fasta
+    cat tut-00000001.fasta
+
+::
 
     >tut-00000001_1
     ATGTTTAAAGGTAATAAGAAGTTGAATAGTTCTAAATTAGGTGATTACACACCACTTGAATTTGGTTCT...
@@ -209,7 +211,7 @@ To perform allele call and determine the allelic profiles of the genomes in the 
 
 ::
 
-    $ chewBBACA.py AlleleCall -i sagalactiae_genomes/subset1/ -g sagalactiae_ns/Streptococcus_agalactiae_tut/ -o subset1_results 
+    chewBBACA.py AlleleCall -i sagalactiae_genomes/subset1/ -g sagalactiae_ns/Streptococcus_agalactiae_tut/ -o subset1_results 
 
 ::
 
@@ -344,7 +346,9 @@ The ``AlleleCall`` process will print the total number of classified CDSs per cl
 
 ::
 
-    $ cat tut-00000001.fasta
+    cat tut-00000001.fasta
+
+::
 
     >tut-00000001_1
     ATGTTTAAAGGTAATAAGAAGTTGAATAGTTCTAAATTAGGTGATTACACACCACTTGAATTTGGTTCT...
@@ -376,7 +380,7 @@ Running the ``SyncSchema`` process is fairly simple. To retrieve new alleles add
 
 ::
 
-    $ chewBBACA.py SyncSchema -sc sagalactiae_ns/Streptococcus_agalactiae_tut/ --submit
+    chewBBACA.py SyncSchema -sc sagalactiae_ns/Streptococcus_agalactiae_tut/ --submit
 
 ::
 
@@ -417,7 +421,9 @@ Since the schema has not been modified since the upload date, the synchronizatio
 
 ::
 
-    $ cat tut-00000001.fasta
+    cat tut-00000001.fasta
+
+::
 
     >tut-00000001_1
     ATGTTTAAAGGTAATAAGAAGTTGAATAGTTCTAAATTAGGTGATTACACACCACTTGAATTTGGTTCT...
@@ -452,7 +458,7 @@ A sample command would be:
 
 ::
 
-    $ chewBBACA.py DownloadSchema -sp 1 -sc 1 -o sagalactiae_snapshot --ns tutorial --d "2020-08-07T22:47:52"
+    chewBBACA.py DownloadSchema -sp 1 -sc 1 -o sagalactiae_snapshot --ns tutorial --d "2020-08-07T22:47:52"
 
 ::
 
@@ -494,7 +500,7 @@ We will perform allele call with the genomes in subset2 to demonstrate how the `
 
 ::
 
-    $ chewBBACA.py AlleleCall -i sagalactiae_genomes/subset2/ -g sagalactiae_snapshot/Streptococcus_agalactiae_tut/ -o subset2_results 
+    chewBBACA.py AlleleCall -i sagalactiae_genomes/subset2/ -g sagalactiae_snapshot/Streptococcus_agalactiae_tut/ -o subset2_results 
 
 ::
 
@@ -522,7 +528,7 @@ To perform this last synchronization, execute:
 
 ::
 
-    $ chewBBACA.py SyncSchema -sc sagalactiae_snapshot/Streptococcus_agalactiae_tut/ --submit
+    chewBBACA.py SyncSchema -sc sagalactiae_snapshot/Streptococcus_agalactiae_tut/ --submit
 
 ::
 
@@ -536,7 +542,9 @@ The synchronization process will retrieve 47 alleles that were inferred from sub
 
 ::
 
-    $ cat tut-00000001.fasta
+    cat tut-00000001.fasta
+
+::
 
     >tut-00000001_1
     ATGTTTAAAGGTAATAAGAAGTTGAATAGTTCTAAATTAGGTGATTACACACCACTTGAATTTGGTTCT...
