@@ -168,7 +168,7 @@ IGNORE_RAISED = ['Warning: [blastp] To obtain better run time '
 # Path to MAFFT executable
 MAFFT_ALIAS = shutil.which('mafft')
 # MAFFT default parameters
-MAFFT_DEFAULT_PARAMETERS = ['--thread', '1', '--treeout', '--retree', '1', '--maxiterate', '0']
+MAFFT_DEFAULT_PARAMETERS = ['--thread', '1', '--retree', '1', '--maxiterate', '0', '--treeout']
 
 # Replacements for genome and loci identifiers
 CHAR_REPLACEMENTS = [("|", "_"), ("_", "-"), ("(", ""),

@@ -1295,39 +1295,39 @@ def run_compute_msa():
 							 'schema to the `--schema-directory` parameter. If a '
 							 'folder is provided, the module computes a MSA for each '
 							 'FASTA file in the folder. In this case, it is not '
-							 'necessary to pass the schema path. The module will '
-							 'attempt to join the MSAs computed for all FASTA '
-							 'files to compute a full MSA. If you simply wish to '
-							 'compute MSAs for each FASTA file independently, use '
-							 'the --only-locus-msa option ().'
+							 'necessary to pass the schema path. The module only '
+							 'attempts to join the MSAs computed for all FASTA files '
+							 'if the input is a file containing allelic profiles. If '
+							 'you only want to compute MSAs for each FASTA file '
+							 'independently, use the `--only-locus-msa option`.'
 							 )
 
 	parser.add_argument('-g', '--schema-directory', type=str,
-						required=True, dest='schema_directory',
-						help='Path to the schema\'s directory.')
+						required=False, dest='schema_directory',
+						help='Path to the schema\'s directory. This parameter is '
+							 'only required if the input is a TSV file with allelic '
+							 'profiles.')
 
 	parser.add_argument('-o', '--output-directory', type=str,
 						required=True, dest='output_directory',
 						help='Path to the output directory where the process will '
-							 'store intermediate files and the FASTA file containing the MSA.')
+							 'store intermediate and final results.')
 
 	parser.add_argument('--dna-msa', action='store_true',
 						required=False, dest='dna_msa',
 						help='Converts the protein MSA to DNA to create an additional '
 							 'output file with the DNA MSA.')
 
-	parser.add_argument('--output-variable', type=str, required=False,
-						dest='output_variable',
-						help='Output a reduced MSA including only the variable positions.')
-
-	parser.add_argument('--gap-char', type=str, required=False,
-						default='-', dest='gap_char',
-						help='Character used to represent gaps in the MSA.')
+	parser.add_argument('--output-variable', type=str,
+					 	required=False, dest='output_variable',
+						help='Output a reduced MSA including only the variable '
+							 'positions. If the `--dna-msa` parameter is provided, the '
+							 'process will output a reduced MSA for both the protein '
+							 'and DNA MSAs.')
 
 	parser.add_argument('--t', '--translation-table', type=int,
 						required=False, default=11, dest='translation_table',
-						help='Genetic code used to translate the coding DNA '
-							 'sequences (CDSs).')
+						help='Genetic code used for sequence translation.')
 
 	parser.add_argument('--cpu', '--cpu-cores', type=pv.verify_cpu_usage,
 						required=False, default=1, dest='cpu_cores',
@@ -1336,13 +1336,51 @@ def run_compute_msa():
 							 'lower value if it is equal to or exceeds the total '
 							 'number of available CPU cores/threads).')
 
-	parser.add_argument('--keep-locus-msa', action='store_true',
-						required=False, dest='keep_locus_msa',
-						help='Keep the MSA files for each locus.')
+	parser.add_argument('--only-loci-msas', action='store_true',
+						required=False, dest='only_loci_msas',
+						help='Do not compute the full MSA. Compute only the '
+							 'MSA for each locus/file.')
 
-	parser.add_argument('--only-locus-msa', action='store_true',
-						required=False, dest='only_locus_msa',
-						help='Only keep the MSA files for each locus. Do not compute full sample MSA.')
+	parser.add_argument('--gaps', type=str, choices=['ignore', 'exclude'],
+						required=False, default='exclude', dest='gaps',
+						help='How to treat gaps when determining the reduced MSA '
+							 'for the variable positions. The default value, '
+							 '"exclude", removes variable positions if any of the '
+							 'aligned sequences contain a gap. The "ignore" option '
+							 'allows to consider variable positions that include '
+							 'gaps in some sequences as long as other sequences '
+							 'include varibale non-gap characters. The character '
+							 'used to represent gaps is "-".')
+
+	parser.add_argument('--ambiguous', type=str, choices=['ignore', 'exclude'],
+						required=False, default='exclude', dest='ambiguous',
+						help='How to treat ambiguous amino acids or nucleotides '
+							 'when determining the reduced MSA for the variable '
+							 'positions. The default value, "exclude", removes '
+							 'variable positions if any of the aligned sequences '
+							 'contain an ambiguous amino acid or nucleotide. The '
+							 '"ignore" option allows to consider variable positions '
+							 'that include ambiguous amino acids or nucleotides in '
+							 'some sequences as long as other sequences include '
+							 'variable non-ambiguous characters. The characters used '
+							 'to represent ambiguous amino acids and nucleotides are '
+							 '.')
+
+	parser.add_argument('--custom-mafft-params', type=str,
+						required=False, dest='custom_mafft_params',
+						help='Custom parameters to pass to MAFFT when computing '
+							 'the loci MSAs. The value must be a single string with all '
+							 'parameters enclosed in quotes (e.g. "--retree 1 --maxiterate 0").')
+
+	parser.add_argument('--protein-input', action='store_true',
+						required=False, dest='protein_input',
+						help='Inout files contain protein sequences. This option os only valid '
+							 'for cases when users provide a path to a directory containing FASTA files.')
+
+	parser.add_argument('--no-cleanup', action='store_true',
+						required=False, dest='no_cleanup',
+						help='Keep intermediate files with loci/files MSAs and samples MSAs '
+							 'if input is a TSV file containing allelic profiles.')
 
 	args = parser.parse_args()
 	del args.ComputeMSA
