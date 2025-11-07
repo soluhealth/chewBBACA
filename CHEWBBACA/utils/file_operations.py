@@ -209,7 +209,8 @@ def listdir_fullpath(directory_path, substring_filter=False):
 				 for file in os.listdir(directory_path)]
 
 	if substring_filter is not False:
-		file_list = filter_by_substring(file_list, [substring_filter])
+		suffixes = [substring_filter] if isinstance(substring_filter, str) else substring_filter
+		file_list = filter_by_substring(file_list, suffixes)
 
 	return file_list
 

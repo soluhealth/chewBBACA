@@ -1290,17 +1290,21 @@ def run_compute_msa():
 						required=True, dest='input_file',
 						help='Path to a TSV file containing allelic profiles or '
 							 'to a folder containing FASTA files. If a TSV file '
-							 'is provided, the MSA is computed based on the allelic '
-							 'profiles and it is necessary to provide the path to the '
-							 'schema to the `--schema-directory` parameter. If a '
-							 'folder is provided, the module computes a MSA for each '
-							 'FASTA file in the folder. In this case, it is not '
-							 'necessary to pass the schema path. The module only '
-							 'attempts to join the MSAs computed for all FASTA files '
-							 'if the input is a file containing allelic profiles. If '
-							 'you only want to compute MSAs for each FASTA file '
-							 'independently, use the `--only-locus-msa option`.'
-							 )
+							 'containing allelic profiles is provided, it is necessary '
+							 'to provide the path to the schema to the `--schema-directory` '
+							 'parameter. The module will create a FASTA file with the alleles '
+							 'identified in the samples for each schema locus and compute a MSA. '
+							 'The loci MSAs are joined to create the complete MSA based on the '
+							 'allele calling results. If a path to a folder is provided, the '
+							 'module computes a MSA for each FASTA file in the folder, but will '
+							 'not attempt to join the MSAs as it does not have the sample '
+							 'information (in this case, it is not necessary to pass the schema '
+							 'path).')
+
+	parser.add_argument('-o', '--output-directory', type=str,
+						required=True, dest='output_directory',
+						help='Path to the output directory where the process will '
+							 'store intermediate and final results.')
 
 	parser.add_argument('-g', '--schema-directory', type=str,
 						required=False, dest='schema_directory',
@@ -1308,17 +1312,12 @@ def run_compute_msa():
 							 'only required if the input is a TSV file with allelic '
 							 'profiles.')
 
-	parser.add_argument('-o', '--output-directory', type=str,
-						required=True, dest='output_directory',
-						help='Path to the output directory where the process will '
-							 'store intermediate and final results.')
-
 	parser.add_argument('--dna-msa', action='store_true',
 						required=False, dest='dna_msa',
-						help='Converts the protein MSA to DNA to create an additional '
+						help='Converts the protein MSA back to DNA to create an additional '
 							 'output file with the DNA MSA.')
 
-	parser.add_argument('--output-variable', type=str,
+	parser.add_argument('--output-variable', action='store_true',
 					 	required=False, dest='output_variable',
 						help='Output a reduced MSA including only the variable '
 							 'positions. If the `--dna-msa` parameter is provided, the '
@@ -1338,8 +1337,10 @@ def run_compute_msa():
 
 	parser.add_argument('--only-loci-msas', action='store_true',
 						required=False, dest='only_loci_msas',
-						help='Do not compute the full MSA. Compute only the '
-							 'MSA for each locus/file.')
+						help='Do not compute the full MSA when the input file is a '
+							 'TSV file containing allelic profiles (this is already '
+							 'the default when the input is a path to a folder with '
+							 'FASTA files).')
 
 	parser.add_argument('--gaps', type=str, choices=['ignore', 'exclude'],
 						required=False, default='exclude', dest='gaps',
@@ -1349,7 +1350,7 @@ def run_compute_msa():
 							 'aligned sequences contain a gap. The "ignore" option '
 							 'allows to consider variable positions that include '
 							 'gaps in some sequences as long as other sequences '
-							 'include varibale non-gap characters. The character '
+							 'include variable non-gap characters. The character '
 							 'used to represent gaps is "-".')
 
 	parser.add_argument('--ambiguous', type=str, choices=['ignore', 'exclude'],
@@ -1374,12 +1375,12 @@ def run_compute_msa():
 
 	parser.add_argument('--protein-input', action='store_true',
 						required=False, dest='protein_input',
-						help='Inout files contain protein sequences. This option os only valid '
+						help='Input files contain protein sequences. This option is only valid '
 							 'for cases when users provide a path to a directory containing FASTA files.')
 
 	parser.add_argument('--no-cleanup', action='store_true',
 						required=False, dest='no_cleanup',
-						help='Keep intermediate files with loci/files MSAs and samples MSAs '
+						help='Keep intermediate files with locus/file MSAs and sample MSAs '
 							 'if input is a TSV file containing allelic profiles.')
 
 	args = parser.parse_args()

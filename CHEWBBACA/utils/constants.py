@@ -666,3 +666,5 @@ MISSING_ALLELES = ('\nCould not create the FASTA files for {0} loci.'
 				   'Some alleles are not in the schema\'s FASTA files. Alleles are not '
 				   'added to the schema if the allele calling process did not '
 				   'complete successfully or if the --no-inferred option is used.')
+
+NO_MSAS_CREATED = ('Could not compute the MSA for any of the files. Exiting...')
