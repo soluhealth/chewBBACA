@@ -607,6 +607,7 @@ def copy_file(source, destination):
 	"""Copy a file to specified destination."""
 	shutil.copy(source, destination)
 
+
 def move_file(source, destination):
 	"""Move a file to specified destination."""
 	shutil.move(source, destination)

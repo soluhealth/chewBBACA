@@ -4,7 +4,17 @@
 Purpose
 -------
 
-This module computes a multiple sequence alignment (MSA) based on allele calling results.
+This module computes a multiple sequence alignment (MSA)
+based on allele calling results. It uses the GetAlleles module
+to extract allele sequences from a given schema for the samples
+in the dataset. It then runs MAFFT to compute the MSA for each locus.
+The final output is a concatenated MSA for all samples in the dataset.
+The module can create both protein and DNA MSAs, as well as MSAs
+containing only variable positions (SNPs). It also handles cases
+where samples do not have alleles identified for certain loci by
+adding gap sequences in the MSA. Additionally, it accepts the path to
+a directory containing FASTA files as input, in which case it
+computes the MSA directly from the sequences in the FASTA files.
 
 Code documentation
 ------------------
@@ -15,7 +25,6 @@ import os
 import sys
 
 import pandas as pd
-from Bio import SeqIO
 
 try:
 	from GetAlleles import get_alleles
@@ -43,18 +52,19 @@ def concatenate_loci_alignments(sample, loci, sample_profile, fasta_index, outpu
 	Parameters
 	----------
 	sample : str
-		Sample identifier.
+		Sample identifier for which to create the concatenated alignment.
 	loci : list
-		Loci identifiers.
+		Identifiers of the loci to include in the concatenated alignment.
 	fasta_index : Bio.File._IndexedSeqFileDict
 		Indexed FASTA file to get sequences from.
 	output_directory : str
-		Path to the output directory.
+		Path to the output directory where the FASTA file containing the
+		sample MSA will be saved.
 
 	Returns
 	-------
 	alignment_outfile : str
-		Path to the FASTA file with the concatenated aligned sequences.
+		Path to the FASTA containing the sample MSA.
 	"""
 	alignment = ''
 	for locus in loci:
@@ -70,7 +80,7 @@ def concatenate_loci_alignments(sample, loci, sample_profile, fasta_index, outpu
 		except Exception as e:
 			seqid = f'{sample}_{locus}_0'
 			alignment += str(fasta_index[seqid].seq)
-	# Save alignment for sample
+	# Save FASTA file with sample alignment
 	alignment_outfile = fo.join_paths(output_directory,
 									  [f'{sample}.fasta'])
 	alignment_record = fao.fasta_str_record(ct.FASTA_RECORD_TEMPLATE,
@@ -81,7 +91,7 @@ def concatenate_loci_alignments(sample, loci, sample_profile, fasta_index, outpu
 
 
 def add_gaps(input_file, locus_id, output_file, gap_char, sample_ids):
-	"""Add gap sequences to a MSA for samples that do not have an allele.
+	"""Add gap sequences to a MSA for samples that do not have a locus.
 
 	Parameters
 	----------
@@ -90,14 +100,14 @@ def add_gaps(input_file, locus_id, output_file, gap_char, sample_ids):
 	locus_id : str
 		Locus identifier.
 	gap_char : str
-		Character to use to fill gaps.
+		Character used to fill gaps.
 	sample_ids : list
 		Sample identifiers.
 
 	Returns
 	-------
-	gapped_fasta : str
-		Path to the FASTA file containing the updated MSA.
+	output_file : str
+		Path to the FASTA file containing the MSA updated with gap sequences.
 	"""
 	records = fao.import_sequences(input_file)
 	# Get list of samples where locus was identified
@@ -105,30 +115,50 @@ def add_gaps(input_file, locus_id, output_file, gap_char, sample_ids):
 	# Get length of alignment to create gapped sequence
 	# Just get length of the first record
 	msa_len = len(records[list(records.keys())[0]])
-	gapped_seq = gap_char * msa_len
-	gapped_records = {}
+	gap_seq = gap_char * msa_len
+	gap_records = {}
 	for sid in sample_ids:
 		# Sample contains locus
 		if sid in dataset_sids:
-			gapped_records[dataset_sids[sid]] = records[dataset_sids[sid]]
+			gap_records[dataset_sids[sid]] = records[dataset_sids[sid]]
 		# Sample does not contain locus
-		# Add gapped sequence
+		# Add gap sequence
 		else:
-			gapped_seq_sid = f'{sid}_{locus_id}_0'
-			gapped_records[gapped_seq_sid] = gapped_seq
+			gap_seq_sid = f'{sid}_{locus_id}_0'
+			gap_records[gap_seq_sid] = gap_seq
 
-	# Save Fasta file with gapped sequences
-	outrecords = [f'>{k}\n{v}' for k, v in gapped_records.items()]
+	# Save Fasta file with gap sequences
+	outrecords = [f'>{k}\n{v}' for k, v in gap_records.items()]
 	fo.write_lines(outrecords, output_file)
 
 	return output_file
 
 
 def convert_msa_to_dna(input_file, dna_file, output_file, gap_char):
+	"""Convert a protein MSA to a DNA MSA.
+
+	Parameters
+	----------
+	input_file : str
+		Path to the FASTA file with the protein MSA.
+	dna_file : str
+		Path to the FASTA file with the DNA sequences.
+	output_file : str
+		Path to the FASTA file where the DNA MSA will be saved.
+	gap_char : str
+		Character used to fill gaps.
+
+	Returns
+	-------
+	output_file : str
+		Path to the FASTA file containing the DNA MSA.
 	"""
-	"""
+	# Import aligned protein sequences
 	protein_records = fao.import_sequences(input_file)
+	# Import DNA sequences (unaligned)
 	dna_sequences = fao.import_sequences(dna_file)
+	# Create DNA MSA based on protein MSA
+	# by substituting each amino acid by its codon
 	dna_records = {}
 	for seqid, sequence in protein_records.items():
 		# Check if it matches any record in the schema
@@ -137,16 +167,17 @@ def convert_msa_to_dna(input_file, dna_file, output_file, gap_char):
 			allele = dna_sequences[seqid]
 			# Iterate over gapped protein sequence to create gapped DNA
 			dna_index = 0
-			gapped_dna = ''
+			gap_dna = ''
 			for i, char in enumerate(sequence):
 				# Add codon if it is not a gap
 				if char != gap_char:
-					gapped_dna += allele[dna_index:dna_index+3]
+					gap_dna += allele[dna_index:dna_index+3]
 					dna_index += 3
 				# Add '---' if it is a gap
 				elif char == gap_char:
-					gapped_dna += gap_char * 3
-			dna_records[seqid] = gapped_dna
+					gap_dna += gap_char * 3
+			dna_records[seqid] = gap_dna
+		# If no matching record found, create a gap sequence
 		else:
 			dna_records[seqid] = sequence * 3
 
@@ -158,12 +189,40 @@ def convert_msa_to_dna(input_file, dna_file, output_file, gap_char):
 
 
 def determine_variable_positions(msa_file, output_file, gap_char, ambiguous_chars, gaps, ambiguous):
-	"""
+	"""Determine the variable positions in a MSA.
+
+	Parameters
+	----------
+	msa_file : str
+		Path to the FASTA file with the complete MSA.
+	output_file : str
+		Path to the FASTA file where the MSA with only variable positions will be saved.
+	gap_char : str
+		Character used to fill gaps.
+	ambiguous_chars : list
+		List of characters considered ambiguous.
+	gaps : str
+		How to handle gaps. Options: 'ignore', 'exclude'. If 'ignore', positions
+		with gaps are considered but gaps are not counted as a distinct character.
+		If 'exclude', positions with gaps are not considered.
+	ambiguous : str
+		How to handle ambiguous characters. Options: 'ignore', 'exclude'. If 'ignore',
+		positions with ambiguous characters are considered but ambiguous characters
+		are not counted as distinct characters. If 'exclude', positions with ambiguous
+		characters are not considered.
+
+	Returns
+	-------
+	Returns a list with two elements:
+	- bool : True if variable positions were found, False otherwise.
+	- output_file : str
+		Path to the FASTA file containing the MSA with only variable positions,
+		if there are any. Returns the input msa_file if no variable positions were found.
 	"""
 	# Read MSA
 	msa_records = fao.import_sequences(msa_file)
 	msa_sequences = list(msa_records.values())
-	# Zip to pair chars in same positions
+	# Zip to pair chars in the same position
 	zipped = list(zip(*msa_sequences))
 	variable = []
 	for i, pos in enumerate(zipped):
@@ -179,6 +238,7 @@ def determine_variable_positions(msa_file, output_file, gap_char, ambiguous_char
 					distinct.remove(c)
 
 		# Exclude positions if any sequence has a gap or an ambiguous char
+		# Simply continue to next position
 		if gaps == 'exclude' and gap_char in distinct:
 			continue
 		if ambiguous == 'exclude' and any([c in distinct for c in ambiguous_chars]):
@@ -199,11 +259,32 @@ def determine_variable_positions(msa_file, output_file, gap_char, ambiguous_char
 		fo.write_lines(variable_records, output_file)
 		return [True, output_file]
 	else:
-		return [False, output_file]
+		return [False, msa_file]
 
-#sample_id, sample_index, fasta_index, output_directory, loci_ids, profiles = inputs[0][:-1]
-def create_full_msa(sample_id, sample_index, fasta_file, output_directory, loci_ids, profiles):
-	"""
+
+def create_sample_msa(sample_id, sample_index, fasta_file, output_directory, loci_ids, profiles):
+	"""Concatenate loci alignments for a given sample.
+
+	Parameters
+	----------
+	sample_id : str
+		Sample identifier for which to create the concatenated alignment.
+	sample_index : list
+		Sample column index in the profiles file.
+	fasta_file : str
+		Path to a FASTA file containing the aligned sequences for all loci.
+	output_directory : str
+		Path to the output directory where the FASTA file containing the
+		sample MSA will be saved.
+	loci_ids : list
+		Identifiers of the loci to include in the concatenated alignment.
+	profiles : str
+		Path to the TSV file containing the allelic profiles.
+
+	Returns
+	-------
+	alignment_file : str
+		Path to the FASTA containing the sample MSA.
 	"""
 	# This tries to create an index for the FASTA file
 	# but ends up loading an existing index created with SeqIO.index_db
@@ -228,20 +309,6 @@ def create_full_msa(sample_id, sample_index, fasta_file, output_directory, loci_
 	return alignment_file
 
 
-# Test
-# input_file = '/home/rmamede/test_chewie/features/ComputeMSA/spyogenes_data/results_alleles_shorter.tsv'
-# schema_directory = '/home/rmamede/test_chewie/features/ComputeMSA/spyogenes_data/spyogenes_wgMLST'
-# output_directory = '/home/rmamede/test_chewie/features/ComputeMSA/spyogenes_data/results'
-# dna_msa = True
-# output_variable = True
-# translation_table = 11
-# cpu_cores = 6
-# only_loci_msas = False
-# gaps = 'exclude'
-# ambiguous = 'exclude'
-# custom_mafft_params = None
-# protein_input = False
-# no_cleanup = False
 def main(input_file, output_directory, schema_directory, dna_msa, output_variable,
 		 translation_table, cpu_cores, only_loci_msas, gaps, ambiguous,
 		 custom_mafft_params, protein_input, no_cleanup):
@@ -291,7 +358,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	mafft_outfiles = [os.path.basename(file) for file in protein_files]
 	mafft_outfiles = [fo.join_paths(mafft_protein_outdir, [file]) for file in mafft_outfiles]
 	mafft_inputs = [[file, mafft_outfiles[i]] for i, file in enumerate(protein_files)]
-	common_args = custom_mafft_params.split() if custom_mafft_params is not None else [ct.MAFFT_DEFAULT_PARAMETERS[:-1]]
+	common_args = [custom_mafft_params.split()] if custom_mafft_params is not None else [ct.MAFFT_DEFAULT_PARAMETERS[:-1]]
 	# Add common arguments to all sublists
 	inputs = im.multiprocessing_inputs(mafft_inputs, common_args, mw.call_mafft)
 	mafft_results = mo.map_async_parallelizer(inputs,
@@ -396,7 +463,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	# User only wants the loci MSAs or the input is a folder with FASTA files
 	if only_loci_msas or os.path.isdir(input_file):
 		print(f'MSAs for each input locus/file are available in {mafft_outdir}')
-		sys.exit(0)
+		return mafft_outdir
 
 	# Create folder to store sample MSAs
 	sample_msas_outdir = fo.join_paths(output_directory, ['sample_MSAs'])
@@ -421,7 +488,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	# Pass the FASTA file used to create the index to each process and the function reloads the index for each process
 	common_args = [loci_msa_concat, sample_protein_msas_outdir, gapped_results_loci_ids, input_file]
 	inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
-	inputs = im.multiprocessing_inputs(inputs, common_args, create_full_msa)
+	inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 	sample_protein_MSA_outfiles = mo.map_async_parallelizer(inputs,
 															mo.function_helper,
 															cpu_cores,
@@ -459,7 +526,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 		print('Creating file with the full DNA MSA...')
 		common_args = [loci_msa_concat, sample_dna_msas_outdir, gapped_results_loci_ids, input_file]
 		inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
-		inputs = im.multiprocessing_inputs(inputs, common_args, create_full_msa)
+		inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 		sample_dna_MSA_outfiles = mo.map_async_parallelizer(inputs,
 															mo.function_helper,
 															cpu_cores,
@@ -499,7 +566,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 		print('\nCreating file with the full protein MSA for the variable positions...')
 		common_args = [loci_msa_concat, sample_protein_variable_msas_folder, variable_results_loci_ids, input_file]
 		inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
-		inputs = im.multiprocessing_inputs(inputs, common_args, create_full_msa)
+		inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 		sample_protein_variable_MSA_outfiles = mo.map_async_parallelizer(inputs,
 															mo.function_helper,
 															cpu_cores,
@@ -538,7 +605,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 			print('\nCreating file with the full DNA MSA for the variable positions...')
 			common_args = [loci_msa_concat, sample_dna_variable_msas_folder, variable_results_loci_ids, input_file]
 			inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
-			inputs = im.multiprocessing_inputs(inputs, common_args, create_full_msa)
+			inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 			sample_dna_variable_MSA_outfiles = mo.map_async_parallelizer(inputs,
 																mo.function_helper,
 																cpu_cores,
