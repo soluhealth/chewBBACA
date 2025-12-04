@@ -30,7 +30,7 @@ Basic Usage
 
 ::
 
-	$ chewBBACA.py CreateSchema -i /path/to/InputAssembliesFolder -o /path/to/OutputFolder --n SchemaName --ptf /path/to/ProdigalTrainingFile
+	chewBBACA.py CreateSchema -i /path/to/InputAssembliesFolder -o /path/to/OutputFolder --n SchemaName --ptf /path/to/ProdigalTrainingFile
 
 .. important::
 	You should adjust the value passed to the ``--cpu`` parameter based on the specifications of your machine. chewBBACA will automatically adjust the value if it matches or exceeds the number of available CPU cores.

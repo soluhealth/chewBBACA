@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.5.0 - 2025-09
+
+- Added the ComputeMSA module to compute a MSA from allele calling results or from a folder containing FASTA files.
+
 ## 3.4.2 - 2025-09-02
 
 - Fixed issue in the ExtractCgMLST module related to using the deprecated Plotly *titlefont* attribute. Support for the *titlefont* attribute was dropped in [Plotly v6.0.0](https://github.com/plotly/plotly.py/releases/tag/v6.0.0). The ExtractCgMLST module would exit with an error and fail to generate the HTML plot if Plotly >= v6.0.0 was installed.

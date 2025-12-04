@@ -26,6 +26,7 @@ try:
 	from UniprotFinder import annotate_schema
 	from ExtractCgMLST import determine_cgmlst
 	from GetAlleles import get_alleles
+	from ComputeMSA import compute_msa
 	from utils import (join_profiles,
 					   remove_genes,
 					   gene_prediction as gp,
@@ -49,6 +50,7 @@ except ModuleNotFoundError:
 	from CHEWBBACA.UniprotFinder import annotate_schema
 	from CHEWBBACA.ExtractCgMLST import determine_cgmlst
 	from CHEWBBACA.GetAlleles import get_alleles
+	from CHEWBBACA.ComputeMSA import compute_msa
 	from CHEWBBACA.utils import (join_profiles,
 								 remove_genes,
 								 gene_prediction as gp,
@@ -1267,6 +1269,127 @@ def run_annotate_schema():
 
 
 @pdt.process_timer
+def run_compute_msa():
+	"""Run the ComputeMSA module to compute a Multiple Sequence Alignment based on allele calling results."""
+
+	def msg(name=None):
+		usage_msg = 'chewBBACA.py ComputeMSA --input-file <file> --schema-directory <dir> --output-directory <dir> [options]'
+
+		return usage_msg
+
+	parser = argparse.ArgumentParser(prog='ComputeMSA',
+									 description='Compute a Multiple Sequence Alignment based on allele calling results.',
+									 usage=msg(),
+									 formatter_class=ModifiedHelpFormatter,
+									 epilog='Module documentation available at '
+											'https://chewbbaca.readthedocs.io/en/latest/user/modules/ComputeMSA.html')
+
+	parser.add_argument('ComputeMSA', nargs='+', help=argparse.SUPPRESS)
+
+	parser.add_argument('-i', '--input-path', type=str,
+						required=True, dest='input_path',
+						help='Path to a TSV file containing allelic profiles or '
+							 'to a folder containing FASTA files. If a TSV file '
+							 'containing allelic profiles is provided, it is necessary '
+							 'to provide the path to the schema to the `--schema-directory` '
+							 'parameter. The module will create a FASTA file with the alleles '
+							 'identified in the samples for each schema locus and compute a MSA. '
+							 'The loci MSAs are joined to create the complete MSA based on the '
+							 'allele calling results. If a path to a folder is provided, the '
+							 'module computes a MSA for each FASTA file in the folder, but will '
+							 'not attempt to join the MSAs as it does not have the sample '
+							 'information (in this case, it is not necessary to pass the schema '
+							 'path).')
+
+	parser.add_argument('-o', '--output-directory', type=str,
+						required=True, dest='output_directory',
+						help='Path to the output directory where the process will '
+							 'store intermediate and final results.')
+
+	parser.add_argument('-g', '--schema-directory', type=str,
+						required=False, dest='schema_directory',
+						help='Path to the schema\'s directory. This parameter is '
+							 'only required if the input is a TSV file with allelic '
+							 'profiles.')
+
+	parser.add_argument('--dna-msa', action='store_true',
+						required=False, dest='dna_msa',
+						help='Converts the protein MSA back to DNA to create an additional '
+							 'output file with the DNA MSA.')
+
+	parser.add_argument('--output-variable', action='store_true',
+					 	required=False, dest='output_variable',
+						help='Output a reduced MSA including only the variable '
+							 'positions. If the `--dna-msa` parameter is provided, the '
+							 'process will output a reduced MSA for both the protein '
+							 'and DNA MSAs.')
+
+	parser.add_argument('--t', '--translation-table', type=int,
+						required=False, default=11, dest='translation_table',
+						help='Genetic code used for sequence translation.')
+
+	parser.add_argument('--cpu', '--cpu-cores', type=pv.verify_cpu_usage,
+						required=False, default=1, dest='cpu_cores',
+						help='Number of CPU cores/threads that will be '
+							 'used to run the process (chewie resets to a '
+							 'lower value if it is equal to or exceeds the total '
+							 'number of available CPU cores/threads).')
+
+	parser.add_argument('--only-loci-msas', action='store_true',
+						required=False, dest='only_loci_msas',
+						help='Do not compute the full MSA when the input file is a '
+							 'TSV file containing allelic profiles (this is already '
+							 'the default when the input is a path to a folder with '
+							 'FASTA files).')
+
+	parser.add_argument('--gaps', type=str, choices=['ignore', 'exclude'],
+						required=False, default='exclude', dest='gaps',
+						help='How to treat gaps when determining the reduced MSA '
+							 'for the variable positions. The default value, '
+							 '"exclude", removes variable positions if any of the '
+							 'aligned sequences contain a gap. The "ignore" option '
+							 'allows to consider variable positions that include '
+							 'gaps in some sequences as long as other sequences '
+							 'include variable non-gap characters. The character '
+							 'used to represent gaps is "-".')
+
+	parser.add_argument('--ambiguous', type=str, choices=['ignore', 'exclude'],
+						required=False, default='exclude', dest='ambiguous',
+						help='How to treat ambiguous amino acids or nucleotides '
+							 'when determining the reduced MSA for the variable '
+							 'positions. The default value, "exclude", removes '
+							 'variable positions if any of the aligned sequences '
+							 'contain an ambiguous amino acid or nucleotide. The '
+							 '"ignore" option allows to consider variable positions '
+							 'that include ambiguous amino acids or nucleotides in '
+							 'some sequences as long as other sequences include '
+							 'variable non-ambiguous characters. The characters used '
+							 'to represent ambiguous amino acids and nucleotides are '
+							 '.')
+
+	parser.add_argument('--custom-mafft-params', type=str,
+						required=False, dest='custom_mafft_params',
+						help='Custom parameters to pass to MAFFT when computing '
+							 'the loci MSAs. The value must be a single string with all '
+							 'parameters enclosed in quotes (e.g. "--retree 1 --maxiterate 0").')
+
+	parser.add_argument('--protein-input', action='store_true',
+						required=False, dest='protein_input',
+						help='Input files contain protein sequences. This option is only valid '
+							 'for cases when users provide a path to a directory containing FASTA files.')
+
+	parser.add_argument('--no-cleanup', action='store_true',
+						required=False, dest='no_cleanup',
+						help='Keep intermediate files with locus/file MSAs and sample MSAs '
+							 'if input is a TSV file containing allelic profiles.')
+
+	args = parser.parse_args()
+	del args.ComputeMSA
+
+	compute_msa.main(**vars(args))
+
+
+@pdt.process_timer
 def run_download_schema():
 	"""Run the DownloadSchema module to download a schema from Chewie-NS."""
 
@@ -1583,6 +1706,8 @@ def main():
 					  				 run_get_alleles],
 					  'UniprotFinder': ['Retrieve annotations for loci in a schema.',
 										run_annotate_schema],
+					  'ComputeMSA': ['Compute a Multiple Sequence Alignment based on allele calling results.',
+									 run_compute_msa],
 					  'DownloadSchema': ['Download a schema from Chewie-NS.',
 										 run_download_schema],
 					  'LoadSchema': ['Upload a schema to Chewie-NS.',

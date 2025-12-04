@@ -47,13 +47,13 @@ To synchronize a local schema we only need to provide the path to the directory 
 
 ::
 
-    $ chewBBACA.py SyncSchema -i path/to/SchemaFolder
+    chewBBACA.py SyncSchema -i path/to/SchemaFolder
 
 The ``--submit`` argument allows users to submit novel alleles in their local schema to Chewie-NS:
 
 ::
 
-    $ chewBBACA.py SyncSchema -i path/to/SchemaFolder --submit
+    chewBBACA.py SyncSchema -i path/to/SchemaFolder --submit
 
 Parameters
 ----------

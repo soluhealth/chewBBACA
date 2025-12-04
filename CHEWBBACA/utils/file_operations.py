@@ -209,7 +209,8 @@ def listdir_fullpath(directory_path, substring_filter=False):
 				 for file in os.listdir(directory_path)]
 
 	if substring_filter is not False:
-		file_list = filter_by_substring(file_list, [substring_filter])
+		suffixes = [substring_filter] if isinstance(substring_filter, str) else substring_filter
+		file_list = filter_by_substring(file_list, suffixes)
 
 	return file_list
 
@@ -493,6 +494,29 @@ def read_tabular(input_file, delimiter='\t'):
 	return lines
 
 
+def extract_column(input_file, delimiter='\t', column_index=0):
+	"""Extract the values of a column from a file.
+
+	Parameters
+	----------
+	input_file : str
+		Path to the input file.
+	delimiter : str, optional
+		Field delimiter. The default is '\t'.
+	column_index : int, optional
+		Index of the column to extract. The default is 0 (extract first column.)
+
+	Returns
+	-------
+	column_values : list
+		List with the column values.
+	"""
+	df = pd.read_csv(input_file, delimiter=delimiter, usecols=[column_index], header=0, dtype=str)
+	column_values = df[df.columns[0]].tolist()
+
+	return column_values
+
+
 def input_timeout(prompt, timeout=30):
 	"""Add timeout feature when requesting user input.
 
@@ -582,6 +606,7 @@ def create_short(schema_files, schema_dir):
 def copy_file(source, destination):
 	"""Copy a file to specified destination."""
 	shutil.copy(source, destination)
+
 
 def move_file(source, destination):
 	"""Move a file to specified destination."""

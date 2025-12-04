@@ -46,20 +46,32 @@ def sequence_generator(input_file):
 	return records
 
 
-def index_fasta(fasta_file):
-	"""Create index to retrieve data from a FASTA file.
+def index_fasta(fasta_file, indexed_file=False):
+	"""Create index to retrieve records from a FASTA file more efficiently.
 
 	Parameters
 	----------
 	fasta_file : str
 		Path to a FASTA file.
+	indexed_file : bool
+		If True, use SeqIO.index_db to store the record information
+		as a file on disk. Otherwise, use SeqIO.index to create
+		the index in memory. A file on disk is more efficient for
+		large FASTA files and can be used with multiprocessing by
+		recalling this function inside each process.
 
 	Returns
 	-------
 	fasta_index : Bio.File._IndexedSeqFileDict
 		FASTA file index.
 	"""
-	fasta_index = SeqIO.index(fasta_file, 'fasta')
+	if indexed_file:
+		# Define the index file name
+		index_file = fasta_file.replace('fasta', 'idx')
+		# Create the index file on disk
+		fasta_index = SeqIO.index_db(index_file, fasta_file, 'fasta')
+	else:
+		fasta_index = SeqIO.index(fasta_file, 'fasta')
 
 	return fasta_index
 

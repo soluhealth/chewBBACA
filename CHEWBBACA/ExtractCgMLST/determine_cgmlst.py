@@ -254,7 +254,7 @@ def main(input_file, output_directory, threshold, step,
     """
     fo.create_directory(output_directory)
 
-    # import matrix with allelic profiles
+    # Import matrix with allelic profiles
     matrix = pd.read_csv(input_file, header=0, index_col=0,
                          sep='\t', low_memory=False)
 
@@ -262,7 +262,7 @@ def main(input_file, output_directory, threshold, step,
     print('Input matrix has {0} profiles for {1} '
           'loci.'.format(total_genomes, total_loci))
 
-    # read list of genes and list of genomes to exclude
+    # Read list of genes and list of genomes to exclude
     genesToRemove = []
     if genes2remove:
         genesToRemove = fo.read_lines(genes2remove)
@@ -274,23 +274,23 @@ def main(input_file, output_directory, threshold, step,
 
     cgMLST_thresholds = threshold
 
-    # remove genomes
+    # Exclude genomes
     if len(genomesToRemove) > 0:
         matrix = remove_genomes(matrix, genomesToRemove)
         total_genomes -= len(genomesToRemove)
 
-    # remove genes
+    # Exclude genes
     if len(genesToRemove) > 0:
         matrix = remove_genes(matrix, genesToRemove)
         total_loci -= len(genesToRemove)
 
-    # mask missing data
+    # Mask missing data
     print('Masking matrix with {0} profiles for {1} '
           'loci...'.format(total_genomes, total_loci))
     masked_matrix = matrix.apply(im.replace_chars)
     print('Masked {0} profiles.'.format(total_genomes))
 
-    # build presence/absence matrix
+    # Build presence/absence matrix
     print('Building presence-absence matrix...')
     pa_matrix, pa_outfile = presAbs(masked_matrix, output_directory)
     print('Presence-absence matrix saved to {0}'.format(pa_outfile))

@@ -17,11 +17,9 @@ BLAST Score Ratio as proposed by [Rasko DA et al.](http://bmcbioinformatics.biom
 
 ## News
 
-## 3.4.2 - 2025-09-02
+## 3.5.0 - 2025-09
 
-- Fixed issue in the ExtractCgMLST module related to using the deprecated Plotly *titlefont* attribute. Support for the *titlefont* attribute was dropped in [Plotly v6.0.0](https://github.com/plotly/plotly.py/releases/tag/v6.0.0). The ExtractCgMLST module would exit with an error and fail to generate the HTML plot if Plotly >= v6.0.0 was installed.
-
-- The LoadSchema module no longer queries UniProt's SPARQL endpoint to retrieve annotations. The current implementation was failing to retrieve annotations. Users should use the UniprotFinder module or the annotation functionalities provided by [Schema Refinery](https://github.com/B-UMMI/Schema_Refinery) to annotate the schema loci and create a TSV file with annotations to submit to Chewie-NS.
+- Added the ComputeMSA module to compute a MSA from allele calling results or from a folder containing FASTA files.
 
 Check our [Changelog](https://github.com/B-UMMI/chewBBACA/blob/master/CHANGELOG.md) to learn about the latest changes.
 

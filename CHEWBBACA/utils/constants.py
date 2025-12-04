@@ -167,6 +167,8 @@ IGNORE_RAISED = ['Warning: [blastp] To obtain better run time '
 
 # Path to MAFFT executable
 MAFFT_ALIAS = shutil.which('mafft')
+# MAFFT default parameters
+MAFFT_DEFAULT_PARAMETERS = ['--thread', '1', '--retree', '1', '--maxiterate', '0', '--treeout']
 
 # Replacements for genome and loci identifiers
 CHAR_REPLACEMENTS = [("|", "_"), ("_", "-"), ("(", ""),
@@ -226,6 +228,18 @@ PARALOGOUS_LIST_HEADER = 'Genome\tLoci\tCDS'
 MISSING_HEADER = 'Index\tGenome\tLocus\tLocus_classification\tCDS\tCDS_classification'
 # Header for TSV file created by the GetAlleles module
 GETALLELES_LOCI_STATS_HEADER = 'Locus\tTotal alleles in schema\tSamples with locus\tDistinct alleles in dataset'
+# Filenames for the files created by the ComputeMSA module
+COMPUTEMSA_PROTEIN_CONCAT = 'protein_concat.fasta'
+COMPUTEMSA_DNA_CONCAT = 'dna_concat.fasta'
+COMPUTEMSA_PROTEIN_MSA = 'protein_msa.fasta'
+COMPUTEMSA_PROTEIN_MSA_VARIABLE = 'protein_msa_variable.fasta'
+COMPUTEMSA_DNA_MSA = 'dna_msa.fasta'
+COMPUTEMSA_DNA_MSA_VARIABLE = 'dna_msa_variable.fasta'
+# Ambiguous characters for DNA and protein sequences
+PROTEIN_AMBIGUOUS_CHARS = ['B', 'Z', 'X', 'J']
+DNA_AMBIGUOUS_CHARS = ['R', 'Y', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V', 'N']
+# Gap character used in MSAs
+GAP_CHAR = '-'
 
 # Allele calling classifications
 ALLELECALL_CLASSIFICATIONS = ['EXC', 'INF', 'PLOT3', 'PLOT5',
@@ -652,3 +666,7 @@ MISSING_ALLELES = ('\nCould not create the FASTA files for {0} loci.'
 				   'Some alleles are not in the schema\'s FASTA files. Alleles are not '
 				   'added to the schema if the allele calling process did not '
 				   'complete successfully or if the --no-inferred option is used.')
+
+NO_MSAS_CREATED = ('Could not compute the MSA for any of the files. Exiting...')
+
+COMPUTEMSA_NO_SCHEMA = ('Schema directory must be provided when input is a TSV file with allelic profiles.')
