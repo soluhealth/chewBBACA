@@ -668,3 +668,5 @@ MISSING_ALLELES = ('\nCould not create the FASTA files for {0} loci.'
 				   'complete successfully or if the --no-inferred option is used.')
 
 NO_MSAS_CREATED = ('Could not compute the MSA for any of the files. Exiting...')
+
+COMPUTEMSA_NO_SCHEMA = ('Schema directory must be provided when input is a TSV file with allelic profiles.')

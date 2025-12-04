@@ -421,6 +421,7 @@ def main(input_files, schema_directory, output_directory, annotations,
 		if no_tree is False or cg_alignment is True:
 			if len(cgMLST_genes) > 0:
 				# Call the ComputeMSA module to compute the loci MSAs
+				print('Calling the ComputeMSA module to compute the cgMLST alignment...')
 				compute_msa.main(cgMLST_matrix_outfile, temp_directory, schema_directory, False, False,
 					   translation_table, cpu_cores, False, 'exclude', 'exclude', None, False, False)
 
@@ -474,4 +475,4 @@ def main(input_files, schema_directory, output_directory, annotations,
 	# Delete all temporary files
 	fo.delete_directory(temp_directory)
 
-	print(f'\nResults available in {output_directory}.')
+	print(f'Results available in {output_directory}.')

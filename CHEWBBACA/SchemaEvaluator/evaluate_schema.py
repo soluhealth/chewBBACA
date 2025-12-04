@@ -785,7 +785,8 @@ def main(schema_directory, output_directory, genes_list, annotations,
 		# Call the ComputeMSA module to compute the loci MSAs
 		protein_files_dir = os.path.dirname(loci_data[0][18])
 		# Need to pass complete MAFFT default parameters defined in constants.py to create tree output
-		msa_files_dir = compute_msa.main(protein_files_dir, temp_directory, schema_directory, False, False,
+		print('Calling the ComputeMSA module to compute the loci MSAs...')
+		msa_files_dir = compute_msa.main(protein_files_dir, temp_directory, None, False, False,
 					   translation_table, cpu_cores, False, 'exclude', 'exclude', ' '.join(ct.MAFFT_DEFAULT_PARAMETERS), True, True)
 		msa_files_dir = fo.join_paths(msa_files_dir, ['protein'])
 		msa_files = fo.listdir_fullpath(msa_files_dir)

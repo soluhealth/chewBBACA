@@ -309,23 +309,31 @@ def create_sample_msa(sample_id, sample_index, fasta_file, output_directory, loc
 	return alignment_file
 
 
-def main(input_file, output_directory, schema_directory, dna_msa, output_variable,
+def main(input_path, output_directory, schema_directory, dna_msa, output_variable,
 		 translation_table, cpu_cores, only_loci_msas, gaps, ambiguous,
 		 custom_mafft_params, protein_input, no_cleanup):
 	# Create output directory
 	fo.create_directory(output_directory)
 
-	if os.path.isfile(input_file):
+	if os.path.isfile(input_path):
+		print('Input is a TSV file with allelic profiles.')
+		if schema_directory is None:
+			sys.exit(ct.COMPUTEMSA_NO_SCHEMA)
 		# Get sample IDs
-		sample_ids = fo.extract_column(input_file, delimiter='\t', column_index=0)
+		sample_ids = fo.extract_column(input_path, delimiter='\t', column_index=0)
 		# Create FASTA files with the alleles identified in the dataset
 		# Call GetAlleles module
 		# Removes the '*' in allele IDs
-		_, dna_files, protein_files = get_alleles.main(input_file, schema_directory, None, output_directory, cpu_cores, False, True, translation_table)
-	elif os.path.isdir(input_file):
+		print('Calling the GetAlleles module to create FASTA files with the allele sequences for the samples in the dataset...')
+		_, dna_files, protein_files = get_alleles.main(input_path, schema_directory, None, output_directory, cpu_cores, False, True, translation_table)
+	elif os.path.isdir(input_path):
+		print('Input is a directory with FASTA files.')
+		if schema_directory is not None:
+			print('Warning: Schema directory provided will be ignored since input is a directory with FASTA files.')
 		# Input is a directory with FASTA files
 		# Copy input files to output directory
-		files_to_copy = fo.listdir_fullpath(input_file, ct.FASTA_EXTENSIONS)
+		print('Copying FASTA files to temp directory...')
+		files_to_copy = fo.listdir_fullpath(input_path, ct.FASTA_EXTENSIONS)
 		copied_dir = fo.join_paths(output_directory, ['input_files'])
 		fo.create_directory(copied_dir)
 		copied_files = []
@@ -351,8 +359,8 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 		sys.exit(ct.COMPUTEMSA_NO_ALLELES)
 
 	# Run MAFFT to compute protein MSAs
-	print('\nRunning MAFFT to compute the MSA for each locus...')
-	mafft_outdir = fo.join_paths(output_directory, ['loci_MSAs'])
+	print('Running MAFFT to compute the MSA for each input file...')
+	mafft_outdir = fo.join_paths(output_directory, ['MSAs'])
 	mafft_protein_outdir = fo.join_paths(mafft_outdir, ['protein'])
 	fo.create_directory(mafft_protein_outdir)
 	mafft_outfiles = [os.path.basename(file) for file in protein_files]
@@ -365,11 +373,12 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 											  mo.function_helper,
 											  cpu_cores,
 											  show_progress=True)
+	print()
 
 	# Identify cases where MAFFT failed
 	mafft_failed = [r[0] for r in mafft_results if r[1] is False]
 	if len(mafft_failed) > 0:
-		print(f'\nCould not determine MSA for {len(mafft_failed)} loci.')
+		print(f'Could not determine MSA for {len(mafft_failed)} loci.')
 
 	# Get files created by MAFFT
 	mafft_success = [r[0] for r in mafft_results if r[1] is True]
@@ -379,7 +388,8 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	# Add gap sequences when samples did not have an allele identified
 	# Only do this if input is a TSV file with allelic profiles
 	# If it is a folder with FASTA files there is no information about samples missing loci
-	if not os.path.isdir(input_file):
+	if not os.path.isdir(input_path):
+		print('Adding gap sequences for samples missing loci...')
 		# This will create new files with MSAs containing gap sequences (samples missing loci will show as gap sequences)
 		gapped_inputs = []
 		for file in mafft_success:
@@ -391,6 +401,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 												mo.function_helper,
 												cpu_cores,
 												show_progress=True)
+		print()
 	# If the input was a directory with FASTA files, there is no need to add gap sequences
 	else:
 		gapped_results = mafft_success
@@ -399,6 +410,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	if dna_msa:
 		dna_inputs = []
 		if protein_input is False:
+			print('Converting protein MSAs to DNA MSAs...')
 			aligned_dna_outdir = fo.join_paths(mafft_outdir, ['dna'])
 			fo.create_directory(aligned_dna_outdir)
 			for i, file in enumerate(gapped_results):
@@ -413,8 +425,9 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 													mo.function_helper,
 													cpu_cores,
 													show_progress=True)
+			print()
 		else:
-			print('\nDNA MSAs were requested, but input files contain protein sequences.')
+			print('DNA MSAs were requested, but input files contain protein sequences. Skipping DNA MSA creation.')
 
 	# Delete directories containing the FASTA files with DNA and protein sequences
 	if not no_cleanup:
@@ -424,6 +437,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 
 	# Identify variable positions to get SNP MSA
 	if output_variable:
+		print('Determining variable positions in the protein MSAs...')
 		# Create folder to store variable position MSAs
 		variable_protein_outfolder = fo.join_paths(mafft_outdir, ['variable_protein'])
 		fo.create_directory(variable_protein_outfolder)
@@ -435,6 +449,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 													 mo.function_helper,
 													 cpu_cores,
 													 show_progress=True)
+		print()
 
 		# Collect variable and non-variable protein MSA files
 		variable_protein = [r[1] for r in variable_results if r[0] is True]
@@ -443,6 +458,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 		# Determine variable positions for DNA MSAs
 		if dna_msa:
 			if protein_input is False:
+				print('Determining variable positions in the DNA MSAs...')
 				# Create folder to store variable position MSAs
 				variable_dna_outfolder = fo.join_paths(mafft_outdir, ['variable_dna'])
 				fo.create_directory(variable_dna_outfolder)
@@ -453,16 +469,17 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 															 mo.function_helper,
 															 cpu_cores,
 															 show_progress=True)
+				print()
 
 				# Collect variable and non-variable DNA MSA files
 				variable_dna = [r[1] for r in variable_results if r[0] is True]
 				non_variable_dna = [r[1] for r in variable_results if r[0] is False]
 			else:
-				print('\nDNA MSAs were requested, but input files contain protein sequences.')
+				print('DNA MSAs were requested, but input files contain protein sequences. Skipping variable position determination for DNA MSAs.')
 
 	# User only wants the loci MSAs or the input is a folder with FASTA files
-	if only_loci_msas or os.path.isdir(input_file):
-		print(f'MSAs for each input locus/file are available in {mafft_outdir}')
+	if only_loci_msas or os.path.isdir(input_path):
+		print(f'MSAs for each input file are available in {mafft_outdir}')
 		return mafft_outdir
 
 	# Create folder to store sample MSAs
@@ -470,7 +487,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	fo.create_directory(sample_msas_outdir)
 
 	# Create the full protein MSA
-	print('\nCreating file with the full protein MSA...')
+	print('Creating file with the full protein MSA...')
 	sample_protein_msas_outdir = fo.join_paths(sample_msas_outdir, ['protein'])
 	fo.create_directory(sample_protein_msas_outdir)
 	# Get loci IDs for which a gapped protein MSA was created
@@ -486,13 +503,14 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	loci_msa_concat_index = fao.index_fasta(loci_msa_concat, True)
 
 	# Pass the FASTA file used to create the index to each process and the function reloads the index for each process
-	common_args = [loci_msa_concat, sample_protein_msas_outdir, gapped_results_loci_ids, input_file]
+	common_args = [loci_msa_concat, sample_protein_msas_outdir, gapped_results_loci_ids, input_path]
 	inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
 	inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 	sample_protein_MSA_outfiles = mo.map_async_parallelizer(inputs,
 															mo.function_helper,
 															cpu_cores,
 															show_progress=True)
+	print()
 
 	# Concatenate sample protein alignments
 	full_protein_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_PROTEIN_MSA])
@@ -524,13 +542,14 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 
 		# Create the full DNA MSA
 		print('Creating file with the full DNA MSA...')
-		common_args = [loci_msa_concat, sample_dna_msas_outdir, gapped_results_loci_ids, input_file]
+		common_args = [loci_msa_concat, sample_dna_msas_outdir, gapped_results_loci_ids, input_path]
 		inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
 		inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 		sample_dna_MSA_outfiles = mo.map_async_parallelizer(inputs,
 															mo.function_helper,
 															cpu_cores,
 															show_progress=True)
+		print()
 
 		# Concatenate sample dna alignments
 		full_dna_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_DNA_MSA])
@@ -563,14 +582,15 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 		loci_msa_concat_index = fao.index_fasta(loci_msa_concat, True)
 
 		# Create the full protein MSA for the variable positions
-		print('\nCreating file with the full protein MSA for the variable positions...')
-		common_args = [loci_msa_concat, sample_protein_variable_msas_folder, variable_results_loci_ids, input_file]
+		print('Creating file with the full protein MSA for the variable positions...')
+		common_args = [loci_msa_concat, sample_protein_variable_msas_folder, variable_results_loci_ids, input_path]
 		inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
 		inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 		sample_protein_variable_MSA_outfiles = mo.map_async_parallelizer(inputs,
 															mo.function_helper,
 															cpu_cores,
 															show_progress=True)
+		print()
 
 		# Concatenate sample protein alignments
 		full_variable_protein_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_PROTEIN_MSA_VARIABLE])
@@ -602,14 +622,15 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 			loci_msa_concat_index = fao.index_fasta(loci_msa_concat, True)
 
 			# Create the full DNA MSA for the variable positions
-			print('\nCreating file with the full DNA MSA for the variable positions...')
-			common_args = [loci_msa_concat, sample_dna_variable_msas_folder, variable_results_loci_ids, input_file]
+			print('Creating file with the full DNA MSA for the variable positions...')
+			common_args = [loci_msa_concat, sample_dna_variable_msas_folder, variable_results_loci_ids, input_path]
 			inputs = [[sid, range(1,sample_ids.index(sid)+1)] for sid in sample_ids]
 			inputs = im.multiprocessing_inputs(inputs, common_args, create_sample_msa)
 			sample_dna_variable_MSA_outfiles = mo.map_async_parallelizer(inputs,
 																mo.function_helper,
 																cpu_cores,
 																show_progress=True)
+			print()
 
 			# Concatenate sample dna alignments
 			full_variable_dna_alignment = fo.join_paths(output_directory, [ct.COMPUTEMSA_DNA_MSA_VARIABLE])
@@ -617,7 +638,7 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 
 			# Get length of the full alignment
 			dna_variable_msa_length = len(fo.read_lines(full_variable_dna_alignment, strip=True, num_lines=2)[1])
-			print(f'Protein MSA length: {dna_variable_msa_length}')
+			print(f'DNA variable MSA length: {dna_variable_msa_length}')
 
 			# Delete folder with intermediate sample DNA variable MSAs
 			if not no_cleanup:
@@ -627,3 +648,5 @@ def main(input_file, output_directory, schema_directory, dna_msa, output_variabl
 	if not no_cleanup:
 		fo.delete_directory(mafft_outdir)
 		fo.delete_directory(sample_msas_outdir)
+
+	print(f'Results are available in {output_directory}')

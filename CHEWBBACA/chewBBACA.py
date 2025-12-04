@@ -1286,8 +1286,8 @@ def run_compute_msa():
 
 	parser.add_argument('ComputeMSA', nargs='+', help=argparse.SUPPRESS)
 
-	parser.add_argument('-i', '--input-file', type=str,
-						required=True, dest='input_file',
+	parser.add_argument('-i', '--input-path', type=str,
+						required=True, dest='input_path',
 						help='Path to a TSV file containing allelic profiles or '
 							 'to a folder containing FASTA files. If a TSV file '
 							 'containing allelic profiles is provided, it is necessary '
