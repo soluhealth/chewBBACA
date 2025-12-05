@@ -1363,9 +1363,10 @@ def run_compute_msa():
 							 '"ignore" option allows to consider variable positions '
 							 'that include ambiguous amino acids or nucleotides in '
 							 'some sequences as long as other sequences include '
-							 'variable non-ambiguous characters. The characters used '
-							 'to represent ambiguous amino acids and nucleotides are '
-							 '.')
+							 'variable non-ambiguous characters. The characters '
+							 'interpreted as ambiguous amino acids are [B, Z, X, J].'
+							 ' The characters interpreted as ambiguous nucleotides are'
+                             ' [R, Y, S, W, K, M, B, D, H, V, N]')
 
 	parser.add_argument('--custom-mafft-params', type=str,
 						required=False, dest='custom_mafft_params',
