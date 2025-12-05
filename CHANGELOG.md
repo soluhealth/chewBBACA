@@ -1,8 +1,14 @@
 # Changelog
 
-## 3.5.0 - 2025-09
+## 3.5.0 - 2025-12-05
 
-- Added the ComputeMSA module to compute a MSA from allele calling results or from a folder containing FASTA files.
+Added the ComputeMSA module to compute MSAs from allele calling results or from a folder containing FASTA files. The ComputeMSA module includes the following functionalities:
+
+- Compute loci, sample and complete MSAs based on the allelic profiles determined by chewBBACA (e.g. at the wg/cgMLST level). Gap sequences (the character used to represent gaps is `-`) are added whenever a locus was not identified in a sample (e.g. when working at the wgMLST level).
+- Compute a MSA for each FASTA file in a folder (just a way to run MAFFT to compute MSAs).
+- MSAs can be computed both at the protein and DNA level (i.e. by converting protein MSAs back to DNA).
+- The `--output-variable` option identifies the variable positions (SNVs) and creates MSAs only for those positions. When determining variable positions, positions with gaps or ambiguous bases can be excluded (`--gaps exclude` and `--ambiguous exclude`) or included (`--gaps ignore` and `--ambiguous ignore`) in the MSA if the sequences have other variable non-gap and non-ambiguous nucleotides or amino acids.
+- The SchemaEvaluator and AlleleCallEvaluator modules use the ComputeMSA module to compute the loci MSAs (SchemaEvaluator) and the complete MSA used by FastTree to compute a tree (AlleleCallEvaluator).
 
 ## 3.4.2 - 2025-09-02
 
