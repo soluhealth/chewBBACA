@@ -27,6 +27,7 @@ Welcome to chewBBACA's documentation!
    user/modules/GetAlleles
    user/modules/JoinProfiles
    user/modules/UniprotFinder
+   user/modules/ComputeMSA
    user/modules/DownloadSchema
    user/modules/LoadSchema
    user/modules/SyncSchema
