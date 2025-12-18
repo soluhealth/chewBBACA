@@ -13,7 +13,6 @@ line and calls the specified module.
 import os
 import sys
 import shutil
-import hashlib
 import argparse
 
 try:
@@ -245,7 +244,7 @@ def run_create_schema():
 	if args.ptf_path is not None:
 		shutil.copy(args.ptf_path, schema_dir)
 		# Determine PTF checksum
-		ptf_hash = fo.hash_file(args.ptf_path, hashlib.blake2b())
+		ptf_hash = fo.hash_file(args.ptf_path, 'blake2b')
 		print(f'Copied Prodigal training file to {schema_dir}')
 
 	# Write schema config file
@@ -501,16 +500,13 @@ def run_allele_call():
 
 	genome_list = fo.join_paths(args.output_directory, [ct.GENOME_LIST])
 	genome_list, total_inputs = pv.check_input_type(args.input_files, genome_list)
+
 	# Detect if some inputs share the same unique prefix
 	repeated_prefixes = pv.check_unique_prefixes(genome_list)
 	# Detect if filenames include blank spaces
 	blank_spaces = pv.check_blanks(genome_list)
-	# Check if any input file has an unique prefix >= 50 characters
-	long_prefixes = pv.check_prefix_length(genome_list)
-	# Check if any input file prefixes are interpreted as PDB IDs
-	makeblastdb_path = fo.join_paths(args.blast_path, [ct.MAKEBLASTDB_ALIAS])
-	blastdbcmd_path = fo.join_paths(args.blast_path, [ct.BLASTDBCMD_ALIAS])
-	pdb_prefixes = pv.check_prefix_pdb(genome_list, args.output_directory, makeblastdb_path, blastdbcmd_path)
+
+### Still need to check if basenames look like PDB IDs
 
 	# Determine if schema was downloaded from Chewie-NS
 	ns_config = fo.join_paths(args.schema_directory, ['.ns_config'])
@@ -1156,7 +1152,7 @@ def run_adapt_schema():
 	if args.ptf_path is not None:
 		shutil.copy(args.ptf_path, schema_path)
 		# Determine PTF checksum
-		ptf_hash = fo.hash_file(args.ptf_path, hashlib.blake2b())
+		ptf_hash = fo.hash_file(args.ptf_path, 'blake2b')
 		print('Copied Prodigal training file to schema directory.')
 
 	# Write schema config file

@@ -24,6 +24,7 @@ import shutil
 import pickle
 import zipfile
 import pathlib
+import hashlib
 import urllib.request
 from itertools import islice
 from collections import Counter
@@ -85,7 +86,7 @@ def remove_files(files):
 			os.remove(f)
 
 
-def hash_file(file, hash_object, buffer_size=65536):
+def hash_file(file, hash_type='md5', buffer_size=65536):
 	"""Compute hash based on the contents of a file.
 
 	Parameters
@@ -104,17 +105,21 @@ def hash_file(file, hash_object, buffer_size=65536):
 	hash_str : str
 		Hash computed from file contents.
 	"""
-	updated_hash = hash_object
+	hashing_function = getattr(hashlib, hash_type)
 
+	hash_object = None
 	with open(file, 'rb') as f:
 		# read file in chunks
 		while True:
 			data = f.read(buffer_size)
 			if not data:
 				break
-			updated_hash.update(data)
+			if hash_object:
+				hash_object.update(data)
+			else:
+				hash_object = hashing_function(data)
 
-	hash_str = updated_hash.hexdigest()
+	hash_str = hash_object.hexdigest()
 
 	return hash_str
 

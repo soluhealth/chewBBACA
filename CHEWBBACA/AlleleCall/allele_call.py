@@ -1289,7 +1289,7 @@ def add_inferred_alleles(inferred_alleles, loci_finder):
 	return alleles_added
 
 
-def select_highest_scores(blast_outfile):
+def select_highest_scores(blast_outfile, id_mapping):
 	"""Select the highest-scoring match for each BLAST target.
 
 	Parameters
@@ -1304,6 +1304,8 @@ def select_highest_scores(blast_outfile):
 		distinct target.
 	"""
 	blast_results = fo.read_tabular(blast_outfile)
+	if id_mapping is not None:
+		blast_results = [[id_mapping[r[0]]] + r[1:4] + [id_mapping[r[4]]] + r[5:] for r in blast_results]
 	# Sort results based on decreasing raw score
 	blast_results = im.sort_iterable(blast_results,
 									 lambda x: int(x[5]),
@@ -1962,9 +1964,8 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	# Get dictionary template to store variables to return
 	template_dict = ct.ALLELECALL_DICT
 
-	# Map input file paths to unique identifier (prefix before first '.' in basename)
-	full_to_basename = im.mapping_function(fasta_files, fo.file_basename, [False])
-	full_to_unique = {k: fo.split_joiner(v, [0], '.') for k, v in full_to_basename.items()}
+	# Map input file paths to file basename without extension and MD5 file hash
+	input_file_ids = [(file, fo.file_basename(file, False)) for file in fasta_files]
 
 	# Create directory to store files with Pyrodigal results
 	pyrodigal_path = fo.join_paths(temp_directory, ['1_cds_prediction'])
@@ -1978,7 +1979,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 
 		# Gene prediction step
 		print(f'Predicting CDSs for {len(fasta_files)} inputs...')
-		pyrodigal_results = cf.predict_genes(full_to_unique,
+		pyrodigal_results = cf.predict_genes(input_file_ids,
 											 config['Prodigal training file'],
 											 config['Translation table'],
 											 config['Prodigal mode'],
@@ -2004,14 +2005,14 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	# Inputs are Fasta files with the predicted CDSs
 	else:
 		# Rename the CDSs in each file based on the input unique identifiers
-		print(f'\nRenaming CDSs for {len(full_to_unique)} input files...')
+		print(f'\nRenaming CDSs for {len(input_file_ids)} input files...')
 
 		renaming_inputs = []
 		cds_fastas = []
-		for k, v in full_to_unique.items():
-			output_file = fo.join_paths(pyrodigal_path, [f'{v}.fasta'])
-			cds_prefix = f'{v}-protein'
-			renaming_inputs.append([k, output_file, 1, 50000,
+		for file in input_file_ids:
+			output_file = fo.join_paths(pyrodigal_path, [f'{file[1]}.fasta'])
+			cds_prefix = f'{file[1]}-protein'
+			renaming_inputs.append([file[0], output_file, 1, 50000,
 									cds_prefix, False, fao.integer_headers])
 			cds_fastas.append(output_file)
 
@@ -2027,13 +2028,12 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		cds_coordinates = None
 		close_to_tip = {}
 		cds_counts = {r[0]: r[1] for r in renaming_results}
-		cds_counts = {full_to_unique[k]: v for k, v in cds_counts.items()}
-		total_cdss = sum([r[1] for r in renaming_results])
+		total_cdss = sum(cds_counts.values())
 		print(f'Input files contain a total of {total_cdss} coding sequences.')
 
 	if len(failed) > 0:
 		# Exclude inputs that failed gene prediction
-		full_to_unique = im.prune_dictionary(full_to_unique, failed.keys())
+		input_file_ids = [file for file in input_file_ids if file[0] not in failed]
 		# Write Prodigal stderr for inputs that failed gene prediction
 		failed_lines = [f'{k}\t{v}' for k, v in failed.items()]
 		failed_outfile = fo.join_paths(os.path.dirname(temp_directory),
@@ -2045,7 +2045,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	# Map input identifiers to integers
 	# Use the mapped integers to refer to each input
 	# This reduces memory usage compared to using string identifiers
-	unique_to_int = im.integer_mapping(full_to_unique.values())
+	unique_to_int = im.integer_mapping([file[1] for file in input_file_ids])
 	int_to_unique = im.invert_dictionary(unique_to_int)
 	template_dict['int_to_unique'] = int_to_unique
 
@@ -2354,18 +2354,39 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	print(f'{len(proteins)-total_clustered} proteins were not added to any cluster.')
 
 	# Create Fasta file and index for unclassified proteins and schema representatives
-	all_prots = fo.join_paths(clustering_dir, ['distinct_proteins.fasta'])
-	fo.concatenate_files([unique_pfasta, concat_reps], all_prots)
-	prot_index = fao.index_fasta(all_prots)
+	distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins.fasta'])
+	fo.concatenate_files([unique_pfasta, concat_reps], distinct_prots)
+	# Index file with SeqIO.index
+	distinct_prots_index = fao.index_fasta(distinct_prots)
+
+	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
+	renamed_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_renamed.fasta'])
+	# Return mapping between new short IDs and original IDs
+	id_mapping = fao.integer_headers(distinct_prots, renamed_distinct_prots, start=1, limit=50000, prefix='seq', id_map=True)
+	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+	inverse_id_mapping = im.invert_dictionary(id_mapping)
+
+	# Create BLAST DB
+	# Create directory to store BLASTp database
+	blast_db_dir = fo.join_paths(clustering_dir, ['BLASTp_db'])
+	fo.create_directory(blast_db_dir)
+	blast_db = fo.join_paths(blast_db_dir, ['distinct_proteins'])
+	db_std = bw.make_blast_db(makeblastdb_path, renamed_distinct_prots, blast_db, 'prot')
+
+	# Index file with SeqIO.index_db to store record information as a file on disk
+	# This allows to reload the index with multiprocessing
+	# SeqIO.index creates the index in memory which cannot be shared between processes
+	renamed_distinct_prots_index = fao.index_fasta(renamed_distinct_prots, True)
 
 	# BLASTp if there are clusters with n>1
 	excluded = []
 	if len(clusters) > 0:
 		# BLAST representatives against clustered sequences
 		print('Aligning cluster representatives against clustered proteins...')
-		blast_results, blast_results_dir = cf.blast_clusters(clusters, all_prots,
-															 clustering_dir, blastp_path,
-															 makeblastdb_path,
+		blast_results, blast_results_dir = cf.blast_clusters(clusters, renamed_distinct_prots,
+															 inverse_id_mapping,
+															 clustering_dir, blast_db,
+															 blastp_path,
 															 config['CPU cores'],
 															 blastdb_aliastool_path,
 															 True)
@@ -2385,14 +2406,15 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		for file in concatenated_files:
 			locus_id = fo.file_basename(file).split('_concatenated')[0]
 			# Get best match per target
-			best_matches = select_highest_scores(file)
+			# Convert back to original seqids using id_mapping
+			best_matches = select_highest_scores(file, id_mapping)
 			best_matches = list(best_matches.values())
 			# Exclude results in the BSR+0.1 threshold
 			# to process representative candidates in later stage
 			match_info = process_blast_results(best_matches, config['BLAST Score Ratio']+0.1, self_scores)
 			# Expand distinct protein matches to all inputs
 			# that contain a CDS that encodes the protein
-			locus_results = expand_matches(match_info, prot_index, dna_index,
+			locus_results = expand_matches(match_info, distinct_prots_index, dna_index,
 										   dna_distinct_htable, distinct_pseqids, int_to_unique,
 										   close_to_tip)
 
@@ -2449,7 +2471,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	# User only wanted exact matches and clustering or all sequences were classified
 	if config['Mode'] == 3 or len(unclassified_seqids) == 0:
 		template_dict['classification_files'] = classification_files
-		template_dict['protein_fasta'] = all_prots
+		template_dict['protein_fasta'] = distinct_prots
 		template_dict['unclassified_ids'] = unclassified_seqids
 		template_dict['representatives'] = {}
 
@@ -2465,14 +2487,24 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 
 	remaining_seqs_file = fo.join_paths(iterative_rep_dir, ['unclassified_proteins.fasta'])
 	# Create Fasta with unclassified sequences
-	fao.get_sequences_by_id(prot_index, unclassified_seqids,
+	fao.get_sequences_by_id(distinct_prots_index, unclassified_seqids,
 							remaining_seqs_file, limit=50000)
+	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
+	remaining_seqs_file_renamed = fo.join_paths(iterative_rep_dir, ['unclassified_proteins_renamed.fasta'])
+	# Return mapping between new short IDs and original IDs
+	id_mapping = fao.integer_headers(remaining_seqs_file, remaining_seqs_file_renamed, start=1, limit=50000, prefix='seq', id_map=True)
+	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+	inverse_id_mapping = im.invert_dictionary(id_mapping)
+	# Index file with SeqIO.index_db to store record information as a file on disk
+	# This allows to reload the index with multiprocessing
+	# SeqIO.index creates the index in memory which cannot be shared between processes
+	remaining_seqs_file_renamed_index = fao.index_fasta(remaining_seqs_file_renamed)
 
 	# Create BLAST DB
 	blast_db_dir = fo.join_paths(iterative_rep_dir, ['BLASTp_db'])
 	fo.create_directory(blast_db_dir)
 	blast_db = fo.join_paths(blast_db_dir, ['unclassified_proteins'])
-	db_std = bw.make_blast_db(makeblastdb_path, remaining_seqs_file, blast_db, 'prot')
+	db_std = bw.make_blast_db(makeblastdb_path, remaining_seqs_file_renamed, blast_db, 'prot')
 
 	# Map representative allele header to locus ID
 	rep_recs = fao.sequence_generator(concat_reps)
@@ -2497,7 +2529,9 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		fo.create_directory(iteration_directory)
 		# Create text file with unclassified seqids
 		remaining_seqids_file = fo.join_paths(iteration_directory, ['unclassified_seqids_{0}.txt'.format(iteration)])
-		fo.write_lines(unclassified_seqids, remaining_seqids_file)
+		# Convert seqids to renamed IDs for BLASTp
+		renamed_seqids = [inverse_id_mapping[sid] for sid in unclassified_seqids]
+		fo.write_lines(renamed_seqids, remaining_seqids_file)
 		binary_file = f'{remaining_seqids_file}.bin'
 		blastp_std = bw.run_blastdb_aliastool(blastdb_aliastool_path,
 												remaining_seqids_file,
@@ -2548,6 +2582,8 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		loci_output_files = []
 		for f in output_files:
 			concat_results = fo.read_tabular(f)
+			# Convert renamed IDs back to original IDs
+			concat_results = [r[:4] + [id_mapping[r[4]]] + r[5:] for r in concat_results]
 			loci_separate_results = {}
 			# Get locus based on representative seqid
 			for line in concat_results:
@@ -2565,10 +2601,10 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		fo.create_directory(iteration_matches_dir)
 		for file in loci_output_files:
 			locus_id = loci_finder.search(file).group()
-			best_matches = select_highest_scores(file)
+			best_matches = select_highest_scores(file, None)
 			best_matches = list(best_matches.values())
 			match_info = process_blast_results(best_matches, config['BLAST Score Ratio'], self_scores)
-			locus_results = expand_matches(match_info, prot_index, dna_index,
+			locus_results = expand_matches(match_info, distinct_prots_index, dna_index,
 										   dna_distinct_htable, distinct_pseqids, int_to_unique,
 										   close_to_tip)
 
@@ -2648,12 +2684,13 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 			fo.create_directory(selection_dir)
 			blast_selection_dir = fo.join_paths(selection_dir, ['BLASTp_results'])
 			fo.create_directory(blast_selection_dir)
+
 			for k, v in representative_candidates.items():
-				current_candidates = {e[1]: e[3] for e in v}
+				current_candidates = {inverse_id_mapping[e[1]]: e[3] for e in v}
 				fasta_file = fo.join_paths(candidates_dir,
 										   ['{0}_candidates.fasta'.format(k)])
 				# Create file with sequences
-				fao.get_sequences_by_id(prot_index, list(current_candidates.keys()), fasta_file)
+				fao.get_sequences_by_id(remaining_seqs_file_renamed_index, list(current_candidates.keys()), fasta_file)
 				# If multiple candidates, compare and select
 				if len(v) > 1:
 					representative_inputs.append([current_candidates, k, fasta_file,
@@ -2671,7 +2708,8 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 															show_progress=False)
 
 			for c in selected_candidates:
-				representatives[c[0]] = c[1]
+				# Convert renamed ID back to original ID
+				representatives[c[0]] = [(id_mapping[crep[0]], crep[1]) for crep in c[1]]
 
 			for k, v in representatives.items():
 				new_reps.setdefault(k, []).extend(v)
@@ -2699,18 +2737,19 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 				for c in current_new_reps:
 					rep_map[c] = k
 
-				# Need to add 'short' or locus id will not be split
+				# Need to add 'short' or locus ID will not be split
 				rep_file = fo.join_paths(selected_dir,
 										 ['{0}_short_reps_iter.fasta'.format(k)])
-				fao.get_sequences_by_id(prot_index, current_new_reps, rep_file)
+				fao.get_sequences_by_id(distinct_prots_index, current_new_reps, rep_file)
 				repprot_fastas.append(rep_file)
 
 			# Concatenate reps
 			concat_repy = fo.join_paths(new_reps_directory, ['concat_reps.fasta'])
-			fao.get_sequences_by_id(prot_index, set(reps_ids), concat_repy, limit=50000)
+			fao.get_sequences_by_id(distinct_prots_index, set(reps_ids), concat_repy, limit=50000)
 			# Determine self-score for new reps
 			candidates_blast_dir = fo.join_paths(new_reps_directory, ['representatives_self_score'])
 			fo.create_directory(candidates_blast_dir)
+
 			new_self_scores = cf.determine_self_scores(concat_repy, candidates_blast_dir,
 													   makeblastdb_path, blastp_path,
 													   'prot', config['CPU cores'],
@@ -2725,7 +2764,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	print('='*len(rep_iter_header))
 
 	template_dict['classification_files'] = classification_files
-	template_dict['protein_fasta'] = all_prots
+	template_dict['protein_fasta'] = distinct_prots
 	template_dict['unclassified_ids'] = unclassified_seqids
 	template_dict['self_scores'] = self_scores
 	template_dict['representatives'] = new_reps

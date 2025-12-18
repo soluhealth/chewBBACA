@@ -16,7 +16,6 @@ import os
 import re
 import sys
 import shutil
-import hashlib
 import argparse
 import platform
 import subprocess
@@ -663,7 +662,7 @@ def hash_ptf(ptf_path):
 		Blake2b hash computed from file content.
 	"""
 	if ptf_path is not None:
-		ptf_hash = fo.hash_file(ptf_path, hashlib.blake2b())
+		ptf_hash = fo.hash_file(ptf_path, 'blake2b')
 	else:
 		ptf_hash = None
 

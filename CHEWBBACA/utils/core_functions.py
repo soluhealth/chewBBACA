@@ -84,8 +84,7 @@ def predict_genes(fasta_files, ptf_path, translation_table,
 
 	# Divide inputs into equal number of sublists for maximum process
 	# progress resolution
-	pyrodigal_inputs = im.divide_list_into_n_chunks(list(fasta_files.items()),
-													len(fasta_files))
+	pyrodigal_inputs = im.divide_list_into_n_chunks(fasta_files, len(fasta_files))
 
 	# Add common arguments to all sublists
 	pyrodigal_inputs = im.multiprocessing_inputs(pyrodigal_inputs,
@@ -717,8 +716,8 @@ def cluster_intra_filter(clusters, sequences, word_size,
 	return [pruned_clusters, intra_excluded]
 
 
-def blast_clusters(clusters, sequences, output_directory,
-				   blastp_path, makeblastdb_path, cpu_cores,
+def blast_clusters(clusters, sequences, id_mapping, output_directory,
+				   blast_db, blastp_path, cpu_cores,
 				   blastdb_aliastool_path, only_rep=False):
 	"""Use BLAST to align sequences in the same clusters.
 
@@ -739,8 +738,6 @@ def blast_clusters(clusters, sequences, output_directory,
 		will be saved to.
 	blastp_path : str
 		Path to the `BLASTp` executable.
-	makeblastdb_path : str
-		Path to the `makeblastdb` executable.
 	cpu_cores : int
 		Number of BLASTp processes to run in parallel.
 	blastdb_aliastool_path : str
@@ -754,22 +751,16 @@ def blast_clusters(clusters, sequences, output_directory,
 		List with paths to the files with BLASTp results
 		(one file per cluster).
 	"""
-	# Create directory to store BLASTp database
-	blast_db_dir = fo.join_paths(output_directory, ['BLASTp_db'])
-	fo.create_directory(blast_db_dir)
-	# Create BLAST DB
-	blast_db = fo.join_paths(blast_db_dir, ['distinct_proteins'])
-	db_std = bw.make_blast_db(makeblastdb_path, sequences, blast_db, 'prot')
-
 	blastp_results_dir = os.path.join(output_directory, 'BLASTp_outfiles')
 	fo.create_directory(blastp_results_dir)
 
 	# Create TXT files with the list of sequences per cluster
-	seqids_to_blast = sc.blast_seqids(clusters, blastp_results_dir, only_rep)
+	seqids_to_blast = sc.blast_seqids(clusters, blastp_results_dir, only_rep, id_mapping)
 
 	# Distribute clusters per available cores
 	process_num = 20 if cpu_cores <= 20 else cpu_cores
 	splitted_seqids = mo.distribute_loci(seqids_to_blast, process_num, 'seqcount')
+
 	common_args = [sequences, blastp_results_dir, blastp_path,
 				   blast_db, blastdb_aliastool_path, only_rep, sc.cluster_blaster]
 	splitted_seqids = [[s, *common_args] for s in splitted_seqids]
@@ -834,15 +825,21 @@ def determine_self_scores(fasta_file, output_directory, makeblastdb_path,
 		tuples with the sequence length and the raw score
 		of the self-alignment as values.
 	"""
+	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
+	renamed_fasta = fo.join_paths(output_directory, [fo.file_basename(fasta_file, False)+'_renamed.fasta'])
+	# Return mapping between new short IDs and original IDs
+	id_mapping = fao.integer_headers(fasta_file, renamed_fasta, start=1, limit=50000, prefix='seq', id_map=True)
+
+	# Create BLAST database
 	blast_db_dir = fo.join_paths(output_directory, ['BLASTp_db'])
 	fo.create_directory(blast_db_dir)
-	blast_db = fo.join_paths(blast_db_dir, [fo.file_basename(fasta_file, False)])
+	blast_db = fo.join_paths(blast_db_dir, [fo.file_basename(renamed_fasta, False)])
 	# Will not work if file contains duplicates
-	db_std = bw.make_blast_db(makeblastdb_path, fasta_file, blast_db, db_type)
+	db_std = bw.make_blast_db(makeblastdb_path, renamed_fasta, blast_db, db_type)
 
 	# Split Fasta file to BLAST short sequences (<30aa) separately
 	# only possible to have alleles <30aa with non-default schemas
-	above_outfile, below_outfile = fao.split_seqlength(fasta_file,
+	above_outfile, below_outfile = fao.split_seqlength(renamed_fasta,
 													   output_directory,
 													   ct.BLAST_TASK_THRESHOLD['blastp'])
 
@@ -936,7 +933,7 @@ def determine_self_scores(fasta_file, output_directory, makeblastdb_path,
 				   for seqid in all_seqids
 				   if seqid not in [line[0] for line in self_results]]
 		# Index FASTA file
-		concat_reps_index = fao.index_fasta(fasta_file)
+		concat_reps_index = fao.index_fasta(renamed_fasta)
 		# Get all representatives that do not have a self-score
 		for seqid in missing:
 			current_rep = concat_reps_index[seqid]
@@ -964,6 +961,9 @@ def determine_self_scores(fasta_file, output_directory, makeblastdb_path,
 			else:
 				print('Could not determine the self-alignment raw '
 					  f'score for {rep_results[0][0]}')
+
+	# Convert back to original IDs
+	self_scores = {id_mapping[k]: v for k, v in self_scores.items()}
 
 	return self_scores
 
