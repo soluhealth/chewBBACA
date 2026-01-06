@@ -826,6 +826,32 @@ def write_results_alleles(classification_files, input_identifiers,
 	return output_file
 
 
+def write_results_masked(input_file, output_directory):
+	"""Write a TSV file with the masked allelic profiles.
+
+	Parameters
+	----------
+	input_file : str
+		Path to the TSV file that contains the allelic profiles.
+	output_directory : str
+		Path to the output directory where the TSV file containing
+		the masked profiles will be created.
+
+	Returns
+	-------
+	output_file : str
+		Path to the output file.
+	"""
+	# Import matrix with allelic profiles
+	matrix = pd.read_csv(input_file, header=0, index_col=0, sep='\t', low_memory=False)
+	masked_matrix = matrix.apply(im.replace_chars)
+	# Write masked matrix to file
+	output_file = fo.join_paths(output_directory, [ct.RESULTS_MASKED_BASENAME])
+	masked_matrix.to_csv(output_file, sep='\t', index_label='FILE')
+
+	return output_file
+
+
 def write_results_statistics(classification_files, input_identifiers,
 							 cds_counts, output_directory, classification_labels,
 							 repeated_counts, invalid_data):
@@ -2362,7 +2388,8 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
 	renamed_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_renamed.fasta'])
 	# Return mapping between new short IDs and original IDs
-	id_mapping = fao.integer_headers(distinct_prots, renamed_distinct_prots, start=1, limit=50000, prefix='seq', id_map=True)
+	# Use 'SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
+	id_mapping = fao.integer_headers(distinct_prots, renamed_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
 	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
 	inverse_id_mapping = im.invert_dictionary(id_mapping)
 
@@ -2372,11 +2399,6 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	fo.create_directory(blast_db_dir)
 	blast_db = fo.join_paths(blast_db_dir, ['distinct_proteins'])
 	db_std = bw.make_blast_db(makeblastdb_path, renamed_distinct_prots, blast_db, 'prot')
-
-	# Index file with SeqIO.index_db to store record information as a file on disk
-	# This allows to reload the index with multiprocessing
-	# SeqIO.index creates the index in memory which cannot be shared between processes
-	renamed_distinct_prots_index = fao.index_fasta(renamed_distinct_prots, True)
 
 	# BLASTp if there are clusters with n>1
 	excluded = []
@@ -2492,7 +2514,8 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
 	remaining_seqs_file_renamed = fo.join_paths(iterative_rep_dir, ['unclassified_proteins_renamed.fasta'])
 	# Return mapping between new short IDs and original IDs
-	id_mapping = fao.integer_headers(remaining_seqs_file, remaining_seqs_file_renamed, start=1, limit=50000, prefix='seq', id_map=True)
+	# Use 'SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
+	id_mapping = fao.integer_headers(remaining_seqs_file, remaining_seqs_file_renamed, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
 	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
 	inverse_id_mapping = im.invert_dictionary(id_mapping)
 	# Index file with SeqIO.index_db to store record information as a file on disk
@@ -2543,6 +2566,8 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		print('\r', '{:^11} {:^9} {:^14}'.format(iteration, len(repprot_fastas), '...'), end='')
 
 		# Concatenate to create groups of 100 loci
+		# Only need to convert IDs when creating a BLAST database
+		# The query files can have the original IDs
 		iteration_blastin_dir = fo.join_paths(iteration_directory, ['BLASTp_infiles'])
 		fo.create_directory(iteration_blastin_dir)
 		concat_repfiles = []
@@ -2583,6 +2608,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		for f in output_files:
 			concat_results = fo.read_tabular(f)
 			# Convert renamed IDs back to original IDs
+			# Representative IDs are not changed and can be used directly
 			concat_results = [r[:4] + [id_mapping[r[4]]] + r[5:] for r in concat_results]
 			loci_separate_results = {}
 			# Get locus based on representative seqid
@@ -2774,7 +2800,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 
 def main(input_file, loci_list, schema_directory, output_directory,
 		 no_inferred, output_unclassified, output_missing, output_novel,
-		 no_cleanup, hash_profiles, ns, config):
+		 output_masked, no_cleanup, hash_profiles, ns, config):
 
 	start_time = pdt.get_datetime()
 
@@ -2983,6 +3009,11 @@ def main(input_file, loci_list, schema_directory, output_directory,
 										   output_directory,
 										   classification_labels[-1],
 										   loci_finder)
+
+	# Create file with masked profiles
+	if output_masked is True:
+		print(f'Creating file with the masked allelic profiles ({ct.RESULTS_ALLELES_MASKED_BASENAME})...')
+		masked = write_results_masked(profiles_table, output_directory)
 
 	# Create file with class counts per input file
 	print(f'Creating file with class counts per input ({ct.RESULTS_STATISTICS_BASENAME})...')

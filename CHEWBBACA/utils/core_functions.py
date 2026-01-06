@@ -828,7 +828,7 @@ def determine_self_scores(fasta_file, output_directory, makeblastdb_path,
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
 	renamed_fasta = fo.join_paths(output_directory, [fo.file_basename(fasta_file, False)+'_renamed.fasta'])
 	# Return mapping between new short IDs and original IDs
-	id_mapping = fao.integer_headers(fasta_file, renamed_fasta, start=1, limit=50000, prefix='seq', id_map=True)
+	id_mapping = fao.integer_headers(fasta_file, renamed_fasta, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
 
 	# Create BLAST database
 	blast_db_dir = fo.join_paths(output_directory, ['BLASTp_db'])

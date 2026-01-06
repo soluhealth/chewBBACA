@@ -452,9 +452,8 @@ def cluster_blaster(seqids, sequences, output_directory,
 		List with the paths to the files with the BLAST
 		results for each cluster.
 	"""
-	# This tries to create an index for the FASTA file
-	# but ends up loading an existing index created with SeqIO.index_db
-	indexed_fasta = fao.index_fasta(sequences, True)
+	# Index FASTA file
+	indexed_fasta = fao.index_fasta(sequences)
 
 	out_files = []
 	for cluster_id in seqids:

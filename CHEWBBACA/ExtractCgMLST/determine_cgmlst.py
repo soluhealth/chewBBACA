@@ -372,4 +372,4 @@ def main(input_file, output_directory, threshold, step,
     output_html = os.path.join(output_directory, 'cgMLST.html')
     plot(fig, filename=output_html, auto_open=False)
     print('HTML file with cgMLST per loci presence threshold '
-          'and per step saved to {0}'.format(output_html))
+          'and step saved to {0}'.format(output_html))
