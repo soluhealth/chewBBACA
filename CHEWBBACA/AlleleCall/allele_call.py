@@ -2053,7 +2053,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		# Cannot get CDS coordinates if skipping gene prediction
 		cds_coordinates = None
 		close_to_tip = {}
-		cds_counts = {r[0]: r[1] for r in renaming_results}
+		cds_counts = {fo.file_basename(r[0], False): r[1] for r in renaming_results}
 		total_cdss = sum(cds_counts.values())
 		print(f'Input files contain a total of {total_cdss} coding sequences.')
 
