@@ -13,6 +13,7 @@ Code documentation
 
 
 import os
+
 import numpy as np
 import pandas as pd
 from plotly.offline import plot

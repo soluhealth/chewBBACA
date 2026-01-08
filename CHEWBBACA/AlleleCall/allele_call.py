@@ -19,6 +19,8 @@ import sys
 import math
 from collections import Counter
 
+import pandas as pd
+
 try:
 	from utils import (constants as ct,
 					   blast_wrapper as bw,
@@ -846,7 +848,7 @@ def write_results_masked(input_file, output_directory):
 	matrix = pd.read_csv(input_file, header=0, index_col=0, sep='\t', low_memory=False)
 	masked_matrix = matrix.apply(im.replace_chars)
 	# Write masked matrix to file
-	output_file = fo.join_paths(output_directory, [ct.RESULTS_MASKED_BASENAME])
+	output_file = fo.join_paths(output_directory, [ct.RESULTS_ALLELES_MASKED_BASENAME])
 	masked_matrix.to_csv(output_file, sep='\t', index_label='FILE')
 
 	return output_file
