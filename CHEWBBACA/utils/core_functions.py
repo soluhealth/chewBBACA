@@ -826,20 +826,25 @@ def determine_self_scores(fasta_file, output_directory, makeblastdb_path,
 		of the self-alignment as values.
 	"""
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
-	renamed_fasta = fo.join_paths(output_directory, [fo.file_basename(fasta_file, False)+'_renamed.fasta'])
+	lcl_fasta = fo.join_paths(output_directory, [fo.file_basename(fasta_file, False)+'_LCL.fasta'])
 	# Return mapping between new short IDs and original IDs
-	id_mapping = fao.integer_headers(fasta_file, renamed_fasta, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
-
+	_ = fao.integer_headers(fasta_file, lcl_fasta, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
 	# Create BLAST database
 	blast_db_dir = fo.join_paths(output_directory, ['BLASTp_db'])
 	fo.create_directory(blast_db_dir)
-	blast_db = fo.join_paths(blast_db_dir, [fo.file_basename(renamed_fasta, False)])
+	blast_db = fo.join_paths(blast_db_dir, [fo.file_basename(lcl_fasta, False)])
 	# Will not work if file contains duplicates
-	db_std = bw.make_blast_db(makeblastdb_path, renamed_fasta, blast_db, db_type)
+	db_std = bw.make_blast_db(makeblastdb_path, lcl_fasta, blast_db, db_type)
+	# Delete FASTA file with modified headers for database creation
+	fo.remove_files([lcl_fasta])
+
+	# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+	seq_fasta = fo.join_paths(output_directory, [fo.file_basename(fasta_file, False)+'_SEQ.fasta'])
+	id_mapping = fao.integer_headers(fasta_file, seq_fasta, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
 
 	# Split Fasta file to BLAST short sequences (<30aa) separately
 	# only possible to have alleles <30aa with non-default schemas
-	above_outfile, below_outfile = fao.split_seqlength(renamed_fasta,
+	above_outfile, below_outfile = fao.split_seqlength(seq_fasta,
 													   output_directory,
 													   ct.BLAST_TASK_THRESHOLD['blastp'])
 
@@ -917,13 +922,11 @@ def determine_self_scores(fasta_file, output_directory, makeblastdb_path,
 	blast_output = fo.concatenate_files(blast_outputs, blast_output)
 
 	current_results = fo.read_tabular(blast_output)
-	# Get raw score and sequence length
-	# multiply by 3 to get DNA sequence length and add 3 to count stop codon
 	self_results = [line for line in current_results if line[0] == line[4]]
 	self_scores = {}
 	for line in self_results:
-		# multiply by 3 to get DNA sequence length
-		# add 3 to count stop codon
+		# Multiply by 3 to get DNA sequence length
+		# Add 3 to count stop codon
 		dna_length = (int(line[3])*3)+3
 		self_scores[line[0]] = (dna_length, float(line[6]))
 
@@ -933,7 +936,7 @@ def determine_self_scores(fasta_file, output_directory, makeblastdb_path,
 				   for seqid in all_seqids
 				   if seqid not in [line[0] for line in self_results]]
 		# Index FASTA file
-		concat_reps_index = fao.index_fasta(renamed_fasta)
+		concat_reps_index = fao.index_fasta(seq_fasta)
 		# Get all representatives that do not have a self-score
 		for seqid in missing:
 			current_rep = concat_reps_index[seqid]

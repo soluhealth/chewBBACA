@@ -285,16 +285,20 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			fo.write_lines(protein_lines, protein_file)
 
 			# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
-			renamed_proteins = fo.join_paths(locus_temp_dir, [protein_file.replace('.fasta', '_renamed.fasta')])
-			# Return mapping between new short IDs and original IDs
-			# Use 'SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
-			id_mapping = fao.integer_headers(protein_file, renamed_proteins, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
-			# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
-			inverse_id_mapping = im.invert_dictionary(id_mapping)
-
+			lcl_proteins = fo.join_paths(locus_temp_dir, [protein_file.replace('.fasta', '_LCL.fasta')])
+			# Use 'lcl|SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
+			_ = fao.integer_headers(protein_file, lcl_proteins, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
 			# Create BLASTdb with all distinct proteins
 			blastp_db = os.path.join(locus_temp_dir, locus_id)
-			db_std = bw.make_blast_db(makeblastdb_path, renamed_proteins, blastp_db, 'prot')
+			db_std = bw.make_blast_db(makeblastdb_path, lcl_proteins, blastp_db, 'prot')
+			# Delete FASTA file with LCL IDs
+			fo.remove_files([lcl_proteins])
+
+			# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+			seq_proteins = fo.join_paths(locus_temp_dir, [protein_file.replace('.fasta', '_SEQ.fasta')])
+			id_mapping = fao.integer_headers(protein_file, seq_proteins, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+			# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+			inverse_id_mapping = im.invert_dictionary(id_mapping)
 
 			# Determine appropriate blastp task (proteins < 30aa need blastp-short)
 			blastp_task = bw.determine_blast_task(equal_prots)

@@ -2386,26 +2386,30 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	distinct_prots_index = fao.index_fasta(distinct_prots)
 
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
-	renamed_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_renamed.fasta'])
+	lcl_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_LCL.fasta'])
 	# Return mapping between new short IDs and original IDs
 	# Use 'SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
-	id_mapping = fao.integer_headers(distinct_prots, renamed_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
-	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
-	inverse_id_mapping = im.invert_dictionary(id_mapping)
-
-	# Create BLAST DB
-	# Create directory to store BLASTp database
+	_ = fao.integer_headers(distinct_prots, lcl_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
+	# Create BLAST database for distinct proteins
 	blast_db_dir = fo.join_paths(clustering_dir, ['BLASTp_db'])
 	fo.create_directory(blast_db_dir)
 	blast_db = fo.join_paths(blast_db_dir, ['distinct_proteins'])
-	db_std = bw.make_blast_db(makeblastdb_path, renamed_distinct_prots, blast_db, 'prot')
+	db_std = bw.make_blast_db(makeblastdb_path, lcl_distinct_prots, blast_db, 'prot')
+	# Delete FASTA file with LCL IDs
+	fo.remove_files([lcl_distinct_prots])
+
+	# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+	seq_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_SEQ.fasta'])
+	id_mapping = fao.integer_headers(distinct_prots, seq_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+	inverse_id_mapping = im.invert_dictionary(id_mapping)
 
 	# BLASTp if there are clusters with n>1
 	excluded = []
 	if len(clusters) > 0:
 		# BLAST representatives against clustered sequences
 		print('Aligning cluster representatives against clustered proteins...')
-		blast_results, blast_results_dir = cf.blast_clusters(clusters, renamed_distinct_prots,
+		blast_results, blast_results_dir = cf.blast_clusters(clusters, seq_distinct_prots,
 															 inverse_id_mapping,
 															 clustering_dir, blast_db,
 															 blastp_path,
@@ -2511,23 +2515,28 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	# Create Fasta with unclassified sequences
 	fao.get_sequences_by_id(distinct_prots_index, unclassified_seqids,
 							remaining_seqs_file, limit=50000)
+
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
-	remaining_seqs_file_renamed = fo.join_paths(iterative_rep_dir, ['unclassified_proteins_renamed.fasta'])
-	# Return mapping between new short IDs and original IDs
-	# Use 'SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
-	id_mapping = fao.integer_headers(remaining_seqs_file, remaining_seqs_file_renamed, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+	lcl_remaining_seqs = fo.join_paths(iterative_rep_dir, ['unclassified_proteins_LCL.fasta'])
+	# Use 'lcl|SEQ' to tell BLAST that these are local sequences and should not be modified
+	_ = fao.integer_headers(remaining_seqs_file, lcl_remaining_seqs, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
+	# Create BLAST database
+	blast_db_dir = fo.join_paths(iterative_rep_dir, ['BLASTp_db'])
+	fo.create_directory(blast_db_dir)
+	blast_db = fo.join_paths(blast_db_dir, ['unclassified_proteins'])
+	db_std = bw.make_blast_db(makeblastdb_path, lcl_remaining_seqs, blast_db, 'prot')
+	# Delete FASTA file with LCL IDs
+	fo.remove_files([lcl_remaining_seqs])
+
+	# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+	seq_distinct_prots = fo.join_paths(iterative_rep_dir, ['distinct_proteins_SEQ.fasta'])
+	id_mapping = fao.integer_headers(remaining_seqs_file, seq_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
 	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
 	inverse_id_mapping = im.invert_dictionary(id_mapping)
 	# Index file with SeqIO.index_db to store record information as a file on disk
 	# This allows to reload the index with multiprocessing
 	# SeqIO.index creates the index in memory which cannot be shared between processes
-	remaining_seqs_file_renamed_index = fao.index_fasta(remaining_seqs_file_renamed)
-
-	# Create BLAST DB
-	blast_db_dir = fo.join_paths(iterative_rep_dir, ['BLASTp_db'])
-	fo.create_directory(blast_db_dir)
-	blast_db = fo.join_paths(blast_db_dir, ['unclassified_proteins'])
-	db_std = bw.make_blast_db(makeblastdb_path, remaining_seqs_file_renamed, blast_db, 'prot')
+	remaining_seqs_file_renamed_index = fao.index_fasta(seq_distinct_prots)
 
 	# Map representative allele header to locus ID
 	rep_recs = fao.sequence_generator(concat_reps)

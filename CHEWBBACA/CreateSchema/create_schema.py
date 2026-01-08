@@ -305,25 +305,29 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 	blastdb_aliastool_path = fo.join_paths(blast_path, [ct.BLASTDB_ALIASTOOL_ALIAS])
 
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
-	renamed_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_renamed.fasta'])
+	lcl_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_lcl.fasta'])
 	# Return mapping between new short IDs and original IDs
-	id_mapping = fao.integer_headers(representative_pfasta, renamed_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
-	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
-	inverse_id_mapping = im.invert_dictionary(id_mapping)
-
+	_ = fao.integer_headers(representative_pfasta, lcl_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
 	# Create BLAST DB
-	# Create directory to store BLASTp database
 	blast_db_dir = fo.join_paths(clustering_dir, ['BLASTp_db'])
 	fo.create_directory(blast_db_dir)
 	blast_db = fo.join_paths(blast_db_dir, ['distinct_proteins'])
-	db_std = bw.make_blast_db(makeblastdb_path, renamed_distinct_prots, blast_db, 'prot')
+	db_std = bw.make_blast_db(makeblastdb_path, lcl_distinct_prots, blast_db, 'prot')
+	# Delete FASTA file with LCL IDs
+	fo.remove_files([lcl_distinct_prots])
+
+	# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+	seq_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_SEQ.fasta'])
+	id_mapping = fao.integer_headers(representative_pfasta, seq_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+	inverse_id_mapping = im.invert_dictionary(id_mapping)
 
 	# All-vs-all BLASTp per cluster
 	if len(clusters) > 0:
 		print(f'Clusters to BLAST: {len(clusters)}')
 		print('Performing all-vs-all BLASTp per cluster...')
 		blast_results, blast_results_dir = cf.blast_clusters(clusters,
-													renamed_distinct_prots,
+													seq_distinct_prots,
 													inverse_id_mapping,
 													clustering_dir, blast_db,
 													blastp_path, cpu_cores,
@@ -368,21 +372,25 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 	fao.get_sequences_by_id(proteins, schema_seqids, quasi_schema_file)
 
 	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
-	renamed_quasi_schema = fo.join_paths(final_blast_dir, ['remaining_sequences_renamed.fasta'])
-	# Return mapping between new short IDs and original IDs
-	id_mapping = fao.integer_headers(quasi_schema_file, renamed_quasi_schema, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
-	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
-	inverse_id_mapping = im.invert_dictionary(id_mapping)
-
+	lcl_quasi_schema = fo.join_paths(final_blast_dir, ['remaining_sequences_LCL.fasta'])
+	_ = fao.integer_headers(quasi_schema_file, lcl_quasi_schema, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
 	# Create BLASTp database
 	blast_db = fo.join_paths(final_blast_dir, ['remaining_sequences'])
-	db_std = bw.make_blast_db(makeblastdb_path, renamed_quasi_schema, blast_db, 'prot')
+	db_std = bw.make_blast_db(makeblastdb_path, lcl_quasi_schema, blast_db, 'prot')
+	# Delete FASTA file with LCL IDs
+	fo.remove_files([lcl_quasi_schema])
+
+	# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+	seq_quasi_schema = fo.join_paths(final_blast_dir, ['remaining_sequences_SEQ.fasta'])
+	id_mapping = fao.integer_headers(quasi_schema_file, seq_quasi_schema, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+	inverse_id_mapping = im.invert_dictionary(id_mapping)
 
 	# Divide FASTA file into groups of 100 sequences to reduce
 	# execution time for large sequence sets
 	split_dir = fo.join_paths(final_blast_dir, ['cds_subsets'])
 	fo.create_directory(split_dir)
-	splitted_fastas = fao.split_seqcount(renamed_quasi_schema, split_dir, 100)
+	splitted_fastas = fao.split_seqcount(seq_quasi_schema, split_dir, 100)
 
 	# Create directory to store results from final BLASTp
 	final_blastp_dir = fo.join_paths(final_blast_dir, ['BLAST_results'])

@@ -677,4 +677,5 @@ COMPUTEMSA_NO_SCHEMA = ('Schema directory must be provided when input is a TSV f
 
 # Define sequence identifier prefix to avoid issues where makeblastdb modifies the IDs
 # of the sequences when creating the database (e.g. when IDs are interpreted as PDB chain IDs)
+BLASTDB_LCL_PREFIX = 'lcl|SEQ'
 BLASTDB_SEQ_PREFIX = 'SEQ'
