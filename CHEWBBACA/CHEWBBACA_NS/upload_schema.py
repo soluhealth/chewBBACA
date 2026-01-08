@@ -26,7 +26,6 @@ import os
 import sys
 import json
 import time
-import hashlib
 import requests
 import itertools
 import multiprocessing
@@ -250,19 +249,49 @@ def quality_control(locus_input):
 		- A list with the identifiers of invalid alleles
 		  (list of str).
 	"""
-	res = sm.get_seqs_dicts(*locus_input)
+	fasta_path, locus_id, output_directories, table_id, min_len, size_threshold = locus_input
 
-	prots_file = '{0}_prots'.format(locus_input[0].split('.fasta')[0])
-	fo.pickle_dumper(res[1], prots_file)
+	# Import DNA sequences
+	dna_seqs = fao.import_sequences(fasta_path)
+	# Translate sequences
+	_, protein_file, _, invalid = fao.translate_fasta(fasta_path, output_directories[1], table_id)
+	prot_seqs = fao.import_sequences(protein_file)
 
-	if len(res[2]) > 0:
-		print('  Found {0} invalid alleles for '
-			  'locus {1}.'.format(len(res[2]), locus_input[1]))
+	if size_threshold is not None and len(prot_seqs) > 0:
+		# Remove alleles based on length mode and size threshold
+		modes, alm, asm, allele_sizes = sm.mode_filter(dna_seqs, size_threshold)
+		excluded = set(asm + alm)
+		# Remove excluded alleles from dictionaries
+		dna_seqs = {seqid: seq
+					for seqid, seq in dna_seqs.items()
+					if seqid not in excluded}
+		prot_seqs = {seqid: seq
+					for seqid, seq in prot_seqs.items()
+					if seqid not in excluded}
 
-	return [locus_input[0], prots_file, res[2]]
+		modes_concat = ':'.join(map(str, modes))
+		st_percentage = int(size_threshold*100)
+		invalid += [[s, ct.ALM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in alm]
+		invalid += [[s, ct.ASM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in asm]
+
+	# Rewrite FASTA files with valid sequences only
+	if len(invalid) > 0:
+		# Create FASTA file with valid DNA sequences
+		valid_fasta = os.path.join(output_directories[0], '{0}.fasta'.format(locus_id))
+		dna_records = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, [(seqid, seq) for seqid, seq in dna_seqs.items()])
+		fo.write_lines(dna_records, valid_fasta)
+		# Create FASTA file with valid protein sequences
+		valid_prot_file = protein_file
+		prot_records = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, [(seqid, seq) for seqid, seq in prot_seqs.items()])
+		fo.write_lines(prot_records, valid_prot_file)
+	else:
+		valid_fasta = fasta_path
+		valid_prot_file = protein_file
+
+	return [valid_fasta, valid_prot_file, invalid]
 
 
-def create_lengths_files(loci_files, out_dir):
+def create_lengths_files(loci_files, output_directory):
 	"""Determine the length of the sequences in a set of FASTA files.
 
 	Parameters
@@ -287,7 +316,7 @@ def create_lengths_files(loci_files, out_dir):
 	for file in loci_files:
 		locus_basename = fo.file_basename(file)
 		locus_lengths = {locus_basename: fao.sequence_lengths(file, True)}
-		lengths_file = os.path.join(out_dir,
+		lengths_file = os.path.join(output_directory,
 									'{0}_lengths'.format(locus_basename.split('.fasta')[0]))
 
 		fo.pickle_dumper(locus_lengths, lengths_file)
@@ -340,7 +369,7 @@ def schema_completedness(base_url, species_id, schema_id, headers_get,
 		the species and linked to the schema, respectively. The
 		last element is the BLAKE2 hash of the locus file.
 	"""
-	# get info about loci and alleles upload
+	# Get info about loci and alleles upload
 	schema_loci = cr.simple_get_request(base_url, headers_get,
 										['species', species_id,
 										 'schemas', schema_id,
@@ -352,10 +381,10 @@ def schema_completedness(base_url, species_id, schema_id, headers_get,
 		schema_loci = schema_loci['hashes']
 
 	loci_info = {hashed_files[k]: v[1]+[k] for k, v in schema_loci.items()}
-	# determine loci that were not fully inserted
+	# Determine loci that were not fully inserted
 	absent_loci = {hashed_files[k]: v[1]+[k]
 				   for k, v in schema_loci.items() if all(v[1]) is not True}
-	# determine loci without alleles
+	# Determine loci without alleles
 	absent_alleles = [hashed_files[k]
 					  for k, v in schema_loci.items() if v[0] is False]
 
@@ -431,7 +460,7 @@ def create_schema(base_url, headers_post, species_id, params):
 	return [schema_url, schema_id]
 
 
-def create_loci_file(schema_files, annotations, schema_dir,
+def create_loci_file(schema_files, output_directory, annotations, schema_dir,
 					 species_id, schema_id, loci_prefix,
 					 absent_loci=None):
 	"""Create a file with the essential data to insert loci in Chewie-NS.
@@ -462,14 +491,14 @@ def create_loci_file(schema_files, annotations, schema_dir,
 		Path to the file with the necessary data to insert loci
 		and associate with species and schema.
 	"""
-	loci_file = os.path.join(schema_dir,
+	loci_file = os.path.join(output_directory,
 							 '{0}_{1}_loci'.format(species_id, schema_id))
 	loci_data = [loci_prefix, []]
 	for file in schema_files:
 		if absent_loci is None or file in absent_loci:
 
 			locus = os.path.basename(file).split('.fasta')[0]
-			locus_hash = fo.hash_file(file, hashlib.blake2b())
+			locus_hash = fo.hash_file(file, 'blake2b')
 
 			locus_annotations = annotations[locus]
 
@@ -521,7 +550,7 @@ def upload_loci_data(loci_file, base_url, species_id,
 		- If the response returned from the NS indicates that it
 		  was not possible to create and associate any/some loci.
 	"""
-	# compress file with loci data to reduce upload size
+	# Compress file with loci data to reduce upload size
 	loci_zip_file = '{0}.zip'.format(loci_file)
 	fo.file_zipper(loci_file, loci_zip_file)
 
@@ -529,7 +558,7 @@ def upload_loci_data(loci_file, base_url, species_id,
 						  'schemas', schema_id, 'loci',
 						  'data')
 
-	# upload file as multipart-encoded file
+	# Upload file as multipart-encoded file
 	filename = '{0}_{1}_loci.zip'.format(species_id, schema_id)
 	response = cr.upload_file(loci_zip_file, filename,
 							  zip_url, headers_post,
@@ -573,7 +602,7 @@ def upload_loci_data(loci_file, base_url, species_id,
 	return response_data
 
 
-def create_alleles_files(schema_files, loci_responses, invalid_alleles,
+def create_alleles_files(schema_files, output_directory, loci_responses, invalid_alleles,
 						 species_name, base_url, species_id,
 						 schema_id, user_id):
 	"""Create files with data to insert alleles in Chewie-NS.
@@ -634,7 +663,7 @@ def create_alleles_files(schema_files, loci_responses, invalid_alleles,
 		locus_name = os.path.basename(file).split('.fasta')[0]
 		loci_names.append(locus_name)
 
-		alleles_file = os.path.join(schema_dir,
+		alleles_file = os.path.join(output_directory,
 									'{0}_{1}_{2}'.format(species_id,
 														 schema_id,
 														 locus_id))
@@ -882,26 +911,30 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 		print('Schema exists and is incomplete '
 			  '("{0}", id={1})'.format(schema_name, schema_id))
 
+	# Create folder to store temporary files
+	upload_temp_dir = os.path.join(schema_directory, 'upload_temp')
+	fo.create_directory(upload_temp_dir)
+
 	# Get schema description
 	if continue_up is False:
 		if description_file is not None and os.path.isfile(description_file) is True:
 			# Determine file hash
-			description_hash = fo.hash_file(description_file, hashlib.blake2b())
+			description_hash = fo.hash_file(description_file, 'blake2b')
 			print('Schema description: {0}'.format(description_file))
 		else:
 			print('Could not get a description from a file. '
 				  'Will use the name of the schema as description.')
-			description_file = 'schema_description.txt'
+			description_file = fo.join_paths(upload_temp_dir, ['schema_description.txt'])
 			with open(description_file, 'w') as sd:
 				sd.write(schema_name)
-			description_hash = fo.hash_file(description_file, hashlib.blake2b())
+			description_hash = fo.hash_file(description_file, 'blake2b')
 
 		params['SchemaDescription'] = description_hash
 
 	print('\n-- Schema Pre-processing --')
 
 	# Hash schema files to get unique identifiers based on content
-	hashed_files = {fo.hash_file(file, hashlib.blake2b()): file for file in fasta_paths}
+	hashed_files = {fo.hash_file(file, 'blake2b'): file for file in fasta_paths}
 	print('Determining data to upload...')
 	absent_loci = fasta_paths
 	if upload_type[0] == 'incomplete':
@@ -914,9 +947,16 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 	print('  Loci without the full set of alleles: '
 		  '{0}\n'.format(len(fasta_paths)))
 
+	# Create temporary directory to store FASTA files containing only the DNA dna protein sequences for the valid alleles
+	valid_fasta_dir = os.path.join(upload_temp_dir, 'valid_fasta')
+	fo.create_directory(valid_fasta_dir)
+	translated_dir = os.path.join(upload_temp_dir, 'translated_fasta')
+	fo.create_directory(translated_dir)
+
 	# Create inputs for QC step
 	inputs = [(file,
 			   file.split('/')[-1].split('.fasta')[0],
+			   [valid_fasta_dir, translated_dir],
 			   int(params['translation_table']),
 			   0,
 			   None) for file in fasta_paths]
@@ -941,8 +981,8 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 	prot_files = [r[1] for r in qc_results]
 
 	# Determine loci missing annotations
-	miss_annotation = [os.path.basename(pf.split('_prots')[0]) for pf in prot_files
-					   if pf.split('_prots')[0] + '.fasta' in absent_loci]
+	miss_annotation = [os.path.basename(pf.split('_protein')[0]) for pf in prot_files
+					   if pf.split('_protein')[0] + '.fasta' in absent_loci]
 
 	print('Missing annotations for {0} loci'.format(len(miss_annotation)))
 
@@ -969,8 +1009,7 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 				loci_annotations[l].extend(['N/A', 'N/A', 'N/A', 'N/A', 'N/A'])
 		print('\nUser provided valid annotations for {0} loci.'.format(provided))
 
-	# convert parameters to string type because Chewie-NS
-	# expects strings
+	# Convert parameters to string type because Chewie-NS expects strings
 	params = {k: str(v) for k, v in params.items()}
 	params['schema_hashes'] = list(hashed_files.keys())
 
@@ -982,7 +1021,7 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 											  headers_post,
 											  species_id,
 											  params)
-		# send file with description
+		# Send file with description
 		description_uri = cr.make_url(nomenclature_server, 'species',
 									  species_id, 'schemas', schema_id,
 									  'description')
@@ -997,7 +1036,7 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 		print('Continuing upload of schema with '
 			  'name {0} (id={1})\n'.format(schema_name, schema_id))
 
-	# start creating new loci and adding/linking alleles
+	# Start creating new loci and adding/linking alleles
 	print('Loci data:')
 
 	if upload_type[0] == 'incomplete':
@@ -1006,8 +1045,9 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 							 for k, v in loci_info.items()}
 			print('All loci were inserted in a previous process.\n')
 		else:
+			loci_data_dir = os.path.join(upload_temp_dir, 'loci_data')
 			print('  Collecting loci data...')
-			loci_file = create_loci_file(dna_files, loci_annotations,
+			loci_file = create_loci_file(dna_files, loci_data_dir, loci_annotations,
 										 schema_directory, species_id,
 										 schema_id, loci_prefix,
 										 absent_loci)
@@ -1022,8 +1062,11 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 			print('\n  The NS completed the insertion of {0} '
 				  'loci.\n'.format(len(absent_loci)))
 	else:
+		# Create directory to store loci data files
+		loci_data_dir = os.path.join(upload_temp_dir, 'loci_data')
+		fo.create_directory(loci_data_dir)
 		print('  Collecting loci data...')
-		loci_file = create_loci_file(dna_files, loci_annotations,
+		loci_file = create_loci_file(dna_files, loci_data_dir, loci_annotations,
 									 schema_directory, species_id,
 									 schema_id, loci_prefix)
 		print('  Sending data to chewie-NS...')
@@ -1035,18 +1078,20 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 		print('\n  The NS completed the insertion of {0} '
 			  'loci.\n'.format(len(response_data)))
 
-	# create files with info for posting alleles
+	# Create files with info for posting alleles
+	allele_data_dir = os.path.join(upload_temp_dir, 'allele_data')
+	fo.create_directory(allele_data_dir)
 	print('Alleles data:')
 	print('  Collecting alleles data...')
 	(alleles_files, loci_ids, loci_hashes,
-	 loci_names) = create_alleles_files(dna_files, response_data,
+	 loci_names) = create_alleles_files(dna_files, allele_data_dir, response_data,
 										invalid_identifiers, species_name,
 										nomenclature_server, species_id,
 										schema_id, user_id)
-	# determine length of all alleles per locus
-	length_files = create_lengths_files(dna_files, schema_directory)
+	# Determine length of all alleles per locus
+	length_files = create_lengths_files(dna_files, allele_data_dir)
 
-	# zip all files to reduce upload size
+	# Compress all files to reduce upload size
 	print('  Compressing files with alleles data...')
 	zipped_files = ['{0}.zip'.format(file) for file in alleles_files]
 	list(map(fo.file_zipper, alleles_files, zipped_files))
@@ -1065,7 +1110,7 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 				 'contact the NS Admin if the problem '
 				 'persists.'.format(','.join(failed)))
 	else:
-		# send training file to NS
+		# Upload training file to Chewie-NS
 		print('\n\nUploading Prodigal training file...')
 		ptf_url = cr.make_url(nomenclature_server, 'species', species_id,
 							  'schemas', schema_id, 'ptf')
@@ -1080,13 +1125,6 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 		print('Schema information will also be available on the '
 			  'chewie-NS website.\n')
 
-	# delete all intermediate files
+	# Delete all intermediate files
 	print('Removing intermediate files...')
-	fo.remove_files(prot_files)
-	fo.remove_files(length_files)
-	fo.remove_files(alleles_files)
-	fo.remove_files(zipped_files)
-
-	if len(absent_loci) > 0:
-		os.remove(loci_file)
-		os.remove('{0}.zip'.format(loci_file))
+	fo.delete_directory(upload_temp_dir)

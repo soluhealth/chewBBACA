@@ -206,6 +206,7 @@ RESULTS_COORDINATES_BASENAME = 'results_contigsInfo.tsv'
 PARALOGOUS_COUNTS_BASENAME = 'paralogous_counts.tsv'
 PARALOGOUS_LOCI_BASENAME = 'paralogous_loci.tsv'
 RESULTS_ALLELES_BASENAME = 'results_alleles.tsv'
+RESULTS_ALLELES_MASKED_BASENAME = 'results_alleles_masked.tsv'
 RESULTS_STATISTICS_BASENAME = 'results_statistics.tsv'
 LOCI_STATS_BASENAME = 'loci_summary_stats.tsv'
 UNCLASSIFIED_BASENAME = 'unclassified_sequences.fasta'
@@ -667,6 +668,14 @@ MISSING_ALLELES = ('\nCould not create the FASTA files for {0} loci.'
 				   'added to the schema if the allele calling process did not '
 				   'complete successfully or if the --no-inferred option is used.')
 
+ALM_MSG = ('allele greater than {0}% locus length mode ({1}>{2})')
+ASM_MSG = ('allele smaller than {0}% locus length mode ({1}<{2})')
+
 NO_MSAS_CREATED = ('Could not compute the MSA for any of the files. Exiting...')
 
 COMPUTEMSA_NO_SCHEMA = ('Schema directory must be provided when input is a TSV file with allelic profiles.')
+
+# Define sequence identifier prefix to avoid issues where makeblastdb modifies the IDs
+# of the sequences when creating the database (e.g. when IDs are interpreted as PDB chain IDs)
+BLASTDB_LCL_PREFIX = 'lcl|SEQ'
+BLASTDB_SEQ_PREFIX = 'SEQ'

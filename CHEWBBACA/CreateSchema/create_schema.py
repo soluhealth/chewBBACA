@@ -89,10 +89,8 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 					   representative_filter, intra_filter, cpu_cores, blast_path,
 					   prodigal_mode, cds_input):
 	"""Create a schema seed based on a set of input FASTA files."""
-	# Map full paths to unique identifier (prefix before first '.')
-	full_to_basename = im.mapping_function(fasta_files, fo.file_basename, [False])
-	full_to_unique = {k: fo.split_joiner(v, [0], '.')
-						for k, v in full_to_basename.items()}
+	# Map input file paths to file basename without extension and MD5 file hash
+	input_file_ids = [(file, fo.file_basename(file, False)) for file in fasta_files]
 
 	# Create directory to store temporary files
 	temp_directory = fo.join_paths(output_directory, ['temp'])
@@ -108,7 +106,7 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 
 		# Gene prediction step
 		print(f'Predicting CDSs for {len(fasta_files)} inputs...')
-		pyrodigal_results = cf.predict_genes(full_to_unique, ptf_path,
+		pyrodigal_results = cf.predict_genes(input_file_ids, ptf_path,
 											 translation_table, prodigal_mode,
 											 cpu_cores, pyrodigal_path)
 
@@ -130,14 +128,14 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 	# Inputs are Fasta files with the predicted CDSs
 	else:
 		# Rename the CDSs in each file based on the input unique identifiers
-		print(f'\nRenaming CDSs for {len(full_to_unique)} input files...')
+		print(f'\nRenaming CDSs for {len(input_file_ids)} input files...')
 
 		renaming_inputs = []
 		cds_fastas = []
-		for k, v in full_to_unique.items():
-			output_file = fo.join_paths(pyrodigal_path, [f'{v}.fasta'])
-			cds_prefix = f'{v}-protein'
-			renaming_inputs.append([k, output_file, 1, 50000,
+		for file in input_file_ids:
+			output_file = fo.join_paths(pyrodigal_path, [f'{file[1]}.fasta'])
+			cds_prefix = f'{file[1]}-protein'
+			renaming_inputs.append([file[0], output_file, 1, 50000,
 									cds_prefix, False, fao.integer_headers])
 			cds_fastas.append(output_file)
 
@@ -156,7 +154,7 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 
 	if len(failed) > 0:
 		# Exclude inputs that failed gene prediction
-		full_to_unique = im.prune_dictionary(full_to_unique, failed.keys())
+		input_file_ids = [file for file in input_file_ids if file[0] not in failed]
 		# Write Prodigal stderr for inputs that failed gene prediction
 		failed_lines = [f'{k}\t{v}' for k, v in failed.items()]
 		failed_outfile = fo.join_paths(output_directory,
@@ -166,7 +164,7 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 	# Map input identifiers to integers
 	# Use the mapped integers to refer to each input
 	# This reduces memory usage compared to using string identifiers
-	unique_to_int = im.integer_mapping(full_to_unique.values())
+	unique_to_int = im.integer_mapping([file[1] for file in input_file_ids])
 	int_to_unique = im.invert_dictionary(unique_to_int)
 
 	# Concatenate subgroups of FASTA files before deduplication
@@ -306,23 +304,47 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 	makeblastdb_path = fo.join_paths(blast_path, [ct.MAKEBLASTDB_ALIAS])
 	blastdb_aliastool_path = fo.join_paths(blast_path, [ct.BLASTDB_ALIASTOOL_ALIAS])
 
+	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
+	lcl_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_lcl.fasta'])
+	# Return mapping between new short IDs and original IDs
+	_ = fao.integer_headers(representative_pfasta, lcl_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
+	# Create BLAST DB
+	blast_db_dir = fo.join_paths(clustering_dir, ['BLASTp_db'])
+	fo.create_directory(blast_db_dir)
+	blast_db = fo.join_paths(blast_db_dir, ['distinct_proteins'])
+	db_std = bw.make_blast_db(makeblastdb_path, lcl_distinct_prots, blast_db, 'prot')
+	# Delete FASTA file with LCL IDs
+	fo.remove_files([lcl_distinct_prots])
+
+	# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+	seq_distinct_prots = fo.join_paths(clustering_dir, ['distinct_proteins_SEQ.fasta'])
+	id_mapping = fao.integer_headers(representative_pfasta, seq_distinct_prots, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+	inverse_id_mapping = im.invert_dictionary(id_mapping)
+
 	# All-vs-all BLASTp per cluster
 	if len(clusters) > 0:
 		print(f'Clusters to BLAST: {len(clusters)}')
 		print('Performing all-vs-all BLASTp per cluster...')
-		blast_results, blast_results_dir = cf.blast_clusters(clusters, representative_pfasta,
-													clustering_dir, blastp_path,
-													makeblastdb_path, cpu_cores,
+		blast_results, blast_results_dir = cf.blast_clusters(clusters,
+													seq_distinct_prots,
+													inverse_id_mapping,
+													clustering_dir, blast_db,
+													blastp_path, cpu_cores,
 													blastdb_aliastool_path)
 
 		blast_files = im.flatten_list(blast_results)
 
 		# Compute and exclude based on BSR
 		print('\nRemoving sequences based on high BSR...')
-		bsr_excluded = [sm.apply_bsr(fo.read_tabular(file),
-									 dna_index,
-									 blast_score_ratio)
-						for file in blast_files]
+		bsr_excluded = []
+		for file in blast_files:
+			blast_lines = fo.read_tabular(file)
+			# Convert renamed IDs back to original IDs
+			blast_lines = [[id_mapping[r[0]]] + r[1:4] + [id_mapping[r[4]]] + r[5:] for r in blast_lines]
+			bsr_excluded.append(sm.apply_bsr(blast_lines,
+										 dna_index,
+										 blast_score_ratio))
 
 		# Merge BSR results
 		bsr_excluded = set(im.flatten_list(bsr_excluded))
@@ -349,15 +371,26 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 	quasi_schema_file = os.path.join(final_blast_dir, 'remaining_sequences.fasta')
 	fao.get_sequences_by_id(proteins, schema_seqids, quasi_schema_file)
 
+	# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
+	lcl_quasi_schema = fo.join_paths(final_blast_dir, ['remaining_sequences_LCL.fasta'])
+	_ = fao.integer_headers(quasi_schema_file, lcl_quasi_schema, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
 	# Create BLASTp database
 	blast_db = fo.join_paths(final_blast_dir, ['remaining_sequences'])
-	db_std = bw.make_blast_db(makeblastdb_path, quasi_schema_file, blast_db, 'prot')
+	db_std = bw.make_blast_db(makeblastdb_path, lcl_quasi_schema, blast_db, 'prot')
+	# Delete FASTA file with LCL IDs
+	fo.remove_files([lcl_quasi_schema])
+
+	# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+	seq_quasi_schema = fo.join_paths(final_blast_dir, ['remaining_sequences_SEQ.fasta'])
+	id_mapping = fao.integer_headers(quasi_schema_file, seq_quasi_schema, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+	# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+	inverse_id_mapping = im.invert_dictionary(id_mapping)
 
 	# Divide FASTA file into groups of 100 sequences to reduce
 	# execution time for large sequence sets
 	split_dir = fo.join_paths(final_blast_dir, ['cds_subsets'])
 	fo.create_directory(split_dir)
-	splitted_fastas = fao.split_seqcount(quasi_schema_file, split_dir, 100)
+	splitted_fastas = fao.split_seqcount(seq_quasi_schema, split_dir, 100)
 
 	# Create directory to store results from final BLASTp
 	final_blastp_dir = fo.join_paths(final_blast_dir, ['BLAST_results'])
@@ -380,7 +413,10 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 	# Concatenate files with BLASTp results
 	blast_output = fo.join_paths(final_blast_dir, ['blast_out_concat.tsv'])
 	blast_output = fo.concatenate_files(blast_outputs, blast_output)
-	final_excluded = sm.apply_bsr(fo.read_tabular(blast_output),
+	blast_lines = fo.read_tabular(blast_output)
+	# Convert renamed IDs back to original IDs
+	blast_lines = [[id_mapping[r[0]]] + r[1:4] + [id_mapping[r[4]]] + r[5:] for r in blast_lines]
+	final_excluded = sm.apply_bsr(blast_lines,
 								  dna_index,
 								  blast_score_ratio)
 	schema_seqids = list(set(schema_seqids) - set(final_excluded))

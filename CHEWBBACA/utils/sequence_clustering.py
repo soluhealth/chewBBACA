@@ -452,27 +452,27 @@ def cluster_blaster(seqids, sequences, output_directory,
 		List with the paths to the files with the BLAST
 		results for each cluster.
 	"""
+	# Index FASTA file
 	indexed_fasta = fao.index_fasta(sequences)
 
 	out_files = []
-	for cluster in seqids:
-		cluster_id = cluster
+	for cluster_id in seqids:
 		ids_file = os.path.join(output_directory,
-								'{0}_ids.txt'.format(cluster_id))
+								'{0}_ids.txt'.format(cluster_id[0]))
 
 		fasta_file = os.path.join(output_directory,
-								  '{0}_protein.fasta'.format(cluster_id))
+								  '{0}_protein.fasta'.format(cluster_id[0]))
 
 		if only_rep is False:
 			with open(ids_file, 'r') as clstr:
 				cluster_ids = [l.strip() for l in clstr.readlines()]
-			# create file with protein sequences
+			# Create file with protein sequences
 			fao.get_sequences_by_id(indexed_fasta, cluster_ids, fasta_file)
 		else:
-			fao.get_sequences_by_id(indexed_fasta, [cluster_id], fasta_file)
+			fao.get_sequences_by_id(indexed_fasta, [cluster_id[1]], fasta_file)
 
 		blast_output = os.path.join(output_directory,
-									'{0}_blastout.tsv'.format(cluster_id))
+									'{0}_blastout.tsv'.format(cluster_id[0]))
 
 		binary_file = f'{ids_file}.bin'
 		blast_std = bw.run_blastdb_aliastool(blastdb_aliastool_path,
@@ -489,7 +489,7 @@ def cluster_blaster(seqids, sequences, output_directory,
 	return out_files
 
 
-def blast_seqids(clusters, output_directory, only_rep):
+def blast_seqids(clusters, output_directory, only_rep, id_mapping):
 	"""Create files with the identifiers of the sequences in each cluster.
 
 	Parameters
@@ -518,8 +518,13 @@ def blast_seqids(clusters, output_directory, only_rep):
 		else:
 			cluster_ids = [seqid[0] for seqid in clusters[rep]]
 
+		# Convert IDs to those used in the renamed FASTA used to create the BLAST DB
+		if id_mapping is not None:
+			cluster_ids = [id_mapping[i] for i in cluster_ids]
+			rep_ids = [rep] if not id_mapping else [rep, id_mapping[rep]]
+
 		cluster_lines = im.join_list(cluster_ids, '\n')
 		fo.write_to_file(cluster_lines, cluster_file, 'w', '')
-		ids_to_blast.append((rep, len(cluster_ids)))
+		ids_to_blast.append((rep_ids, len(cluster_ids)))
 
 	return ids_to_blast

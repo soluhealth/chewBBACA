@@ -322,116 +322,6 @@ def mode_filter(sequences, size_threshold):
 	return [modes, alm, asm, seqs_lengths]
 
 
-def get_seqs_dicts(fasta_path, gene_id, table_id, min_len, size_threshold):
-	"""Translate DNA sequences in a FASTA file.
-
-	Translates the set of alleles from a gene. Identifies
-	sequences that cannot be translated according to the
-	criteria enforced by chewBBACA.
-
-	Parameters
-	----------
-	fasta_path : str
-		Path to the FASTA file with DNA sequences.
-	gene_id : str
-		Gene identifier.
-	table_id : int
-		Translation table identifier.
-	min_len : int
-		Minimum sequence length. Sequences shorter
-		than this value are not translated.
-	size_threshold : float
-		Sequences with +/- this value * mode will be
-		reported as above or below the mode.
-
-	Returns
-	-------
-	List with following elements:
-		dna_seqs : dict
-			Dictionary with sequence identifiers as keys
-			and DNA sequences as values.
-		prot_seqs : dict
-			Dictionary with protein identifiers as keys
-			and Protein sequences as values. Keys are
-			consecutive integers to enable alignment
-			with BLASTp without getting exceptions due
-			to long sequence identifiers.
-		invalid : list
-			List with sequence identifiers of alleles
-			that are not valid because they could not be
-			translated.
-		seqids_map : dict
-			Dictionary with consecutive integers as keys
-			and original allele identifiers as values.
-		total_seqs : int
-			Total number of sequences that was processed
-			(including invalid alleles).
-	"""
-	sequences = fao.import_sequences(fasta_path)
-
-	# Translate sequences
-	translated_seqs = {k: translate_dna(v, table_id, min_len)
-					   for k, v in sequences.items()}
-
-	# Add locus identifier to headers
-	# Some headers might only have the allele identifier
-	seqids = list(translated_seqs.keys())
-	new_seqids = {}
-	for i in seqids:
-		new_id = '{0}_{1}'.format(gene_id, i.split('_')[-1])
-		new_seqids[i] = new_id
-
-	# Switch sequence ids
-	sequences = {new_seqids[k]: v
-				 for k, v in translated_seqs.items()}
-
-	valid = {k: v
-			 for k, v in sequences.items()
-			 if isinstance(v, list) is True}
-	invalid = [[k, v]
-			   for k, v in sequences.items()
-			   if isinstance(v, list) is False]
-
-	seqid = 1
-	seqids_map = {}
-	dna_seqs = {}
-	prot_seqs = {}
-	for k, v in valid.items():
-		seqids_map[str(seqid)] = k
-		dna_seqs[k] = v[0][1]
-		prot_seqs[str(seqid)] = str(v[0][0])
-		seqid += 1
-
-	if size_threshold is not None and len(prot_seqs) > 0:
-		# Remove alleles based on length mode and size threshold
-		modes, alm, asm, alleles_lengths = mode_filter(dna_seqs, size_threshold)
-		excluded = set(asm + alm)
-
-		dna_seqs = {seqid: seq
-					for seqid, seq in dna_seqs.items()
-					if seqid not in excluded}
-		prot_seqs = {seqid: seq
-					 for seqid, seq in prot_seqs.items()
-					 if seqids_map[seqid] not in excluded}
-
-		modes_concat = ':'.join(map(str, modes))
-		st_percentage = int(size_threshold*100)
-		invalid += [[s, 'allele greater than {0}% locus length mode '
-					 '({1}>{2})'.format(st_percentage,
-										alleles_lengths[s],
-										modes_concat)]
-					for s in alm]
-		invalid += [[s, 'allele smaller than {0}% locus length mode '
-					 '({1}<{2})'.format(st_percentage,
-										alleles_lengths[s],
-										modes_concat)]
-					for s in asm]
-
-	total_seqs = len(translated_seqs)
-
-	return [dna_seqs, prot_seqs, invalid, seqids_map, total_seqs]
-
-
 def translate_coding_sequences(seqids, protein_file, sequences_file,
 							   translation_table, minimum_length):
 	"""Translate coding sequences.
@@ -513,42 +403,42 @@ def determine_distinct(sequences_file, unique_fasta, map_ids):
 	out_seqs = []
 	duplicates = {}
 	exhausted = False
-	# limit of 10000 Fasta records in memory
+	# Limit of 10000 Fasta records in memory
 	out_limit = 10000
 	seq_generator = fao.sequence_generator(sequences_file)
 	while exhausted is False:
 		record = next(seq_generator, None)
 		if record is not None:
-			# seq object has to be converted to string
+			# Seq object has to be converted to string
 			seqid = record.id
 			sequence = str(record.seq.upper())
 
-			# use digest() instead of hexdigest() to reduce memory usage?
+			# Use digest() instead of hexdigest() to reduce memory usage?
 			seq_hash = im.hash_sequence(sequence)
 
-			# add unseen sequence to Fasta file with distinct sequences
+			# Add unseen sequence to Fasta file with distinct sequences
 			if seq_hash not in duplicates:
 				recout = fao.fasta_str_record(ct.FASTA_RECORD_TEMPLATE, [seqid, sequence])
 				out_seqs.append(recout)
 
-			# add CDS hash as key
-			# add genome integer identifier and protein identifier to values list
-			# genome identifier and protein identifier can be used to fetch sequences
+			# Add CDS hash as key
+			# Add genome integer identifier and protein identifier to values list
+			# Genome identifier and protein identifier can be used to fetch sequences
 			genome_id, protid = seqid.split('-protein')
 			genome_id = map_ids[genome_id]
 			duplicates.setdefault(seq_hash, []).extend([int(protid), int(genome_id)])
 		else:
 			exhausted = True
 
-		# write Fasta records to file
+		# Write Fasta records to file
 		if len(out_seqs) == out_limit or exhausted is True:
 			if len(out_seqs) > 0:
 				out_seqs = im.join_list(out_seqs, '\n')
 				fo.write_to_file(out_seqs, unique_fasta, 'a', '\n')
-				# reset list to avoid writing same records multiple times
+				# Reset list to avoid writing same records multiple times
 				out_seqs = []
 
-	# save dictionary with genome integer identifiers per distinct sequence
+	# Save dictionary with genome integer identifiers per distinct sequence
 	# to pickle and only return file path to avoid keeping all dicts from
 	# parallel processes in memory
 	pickle_out = unique_fasta.replace('.fasta', '.duplicates')

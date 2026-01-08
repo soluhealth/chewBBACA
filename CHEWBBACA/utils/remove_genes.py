@@ -44,8 +44,8 @@ def main(input_file, genes_list, output_file, inverse):
 		genes_list = [g[0] for g in genes_list]
 
 	# Get list of loci in allele call results
-	loci = fo.read_lines(input_file, strip=True, num_lines=1)
-	loci = loci[0].split('\t')[1:]
+	header = fo.read_lines(input_file, strip=True, num_lines=1)
+	loci = header[0].split('\t')[1:]
 	print('Total loci: {0}'.format(len(loci)))
 
 	if inverse is True:

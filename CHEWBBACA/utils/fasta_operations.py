@@ -168,7 +168,6 @@ def integer_headers(input_fasta, output_fasta, start=1,
 	while exhausted is False:
 		record = next(seq_generator, None)
 		if record is not None:
-			# new_id = 'seq_{0}'.format(start)
 			new_id = '{0}{1}'.format(prefix, start)
 			ids_map[new_id] = record.id
 			sequence = str(record.seq)

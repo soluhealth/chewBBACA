@@ -229,10 +229,34 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 		# Create temp directory for the current gene
 		fo.create_directory(locus_temp_dir)
 
-		# Dictionaries mapping gene identifiers to DNA and Protein sequences
-		locus_seqs, prot_seqs, locus_invalid, seqids_map, total_sequences = \
-			sm.get_seqs_dicts(locus, locus_id, table_id, min_len, size_threshold)
-		invalid_alleles.extend(locus_invalid)
+		# Import DNA sequences
+		dna_seqs = fao.import_sequences(locus)
+		total_sequences = len(dna_seqs)
+		# Translate sequences
+		_, protein_file, _, invalid = fao.translate_fasta(locus, locus_temp_dir, table_id)
+		prot_seqs = fao.import_sequences(protein_file)
+		# Get the IDs of alleles that could not be translated
+		excluded = set([s[0] for s in invalid])
+
+		if size_threshold is not None and len(prot_seqs) > 0:
+			# Remove alleles based on length mode and size threshold
+			modes, alm, asm, allele_sizes = sm.mode_filter(dna_seqs, size_threshold)
+			excluded.add(set(asm + alm))
+
+			modes_concat = ':'.join(map(str, modes))
+			st_percentage = int(size_threshold*100)
+			invalid += [[s, ct.ALM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in alm]
+			invalid += [[s, ct.ASM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in asm]
+
+		invalid_alleles.extend(invalid)
+
+		# Remove excluded alleles
+		dna_seqs = {seqid: seq
+					for seqid, seq in dna_seqs.items()
+					if seqid not in excluded}
+		prot_seqs = {seqid: seq
+					for seqid, seq in prot_seqs.items()
+					if seqid not in excluded}
 
 		# Continue to next locus if there are no valid CDSs for current locus
 		if len(prot_seqs) == 0:
@@ -241,7 +265,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			summary_stats.append([locus_id, str(total_sequences), '0', '0'])
 			continue
 
-		if len(locus_seqs) > 1:
+		if len(dna_seqs) > 1:
 			# Identify DNA sequences that code for same protein
 			equal_prots = sm.determine_duplicated_seqs(prot_seqs)
 
@@ -260,9 +284,21 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			protein_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, protein_data)
 			fo.write_lines(protein_lines, protein_file)
 
-			# Create blastdb with all distinct proteins
+			# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
+			lcl_proteins = fo.join_paths(locus_temp_dir, [protein_file.replace('.fasta', '_LCL.fasta')])
+			# Use 'lcl|SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
+			_ = fao.integer_headers(protein_file, lcl_proteins, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
+			# Create BLASTdb with all distinct proteins
 			blastp_db = os.path.join(locus_temp_dir, locus_id)
-			db_std = bw.make_blast_db(makeblastdb_path, protein_file, blastp_db, 'prot')
+			db_std = bw.make_blast_db(makeblastdb_path, lcl_proteins, blastp_db, 'prot')
+			# Delete FASTA file with LCL IDs
+			fo.remove_files([lcl_proteins])
+
+			# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
+			seq_proteins = fo.join_paths(locus_temp_dir, [protein_file.replace('.fasta', '_SEQ.fasta')])
+			id_mapping = fao.integer_headers(protein_file, seq_proteins, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
+			# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
+			inverse_id_mapping = im.invert_dictionary(id_mapping)
 
 			# Determine appropriate blastp task (proteins < 30aa need blastp-short)
 			blastp_task = bw.determine_blast_task(equal_prots)
@@ -270,7 +306,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			# Cycle BLAST representatives against non-representatives until
 			# all non-representatives have a representative
 			while len(set(ids_to_blast) - set(representatives)) != 0:
-				# create FASTA file with representative sequences
+				# Create FASTA file with representative alleles
 				rep_file = fo.join_paths(locus_temp_dir,
 										 [f'{locus_id}_rep_protein.fasta'])
 				rep_protein_data = [[r, prot_seqs[r]] for r in representatives]
@@ -285,7 +321,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 						fo.write_lines([record], current_rep_file)
 						# Create file with representative seqid to only compare against self
 						id_file = fo.join_paths(locus_temp_dir, [f'{seqid}_ids.txt'])
-						fo.write_lines([seqid], id_file)
+						fo.write_lines([inverse_id_mapping[seqid]], id_file)
 						binary_file = f'{id_file}.bin'
 						blast_std = bw.run_blastdb_aliastool(blastdb_aliastool_path,
 															id_file,
@@ -298,6 +334,8 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 												rep_blastout, 1, 1,
 												id_file, 'blastp', None, 0)
 						rep_results = fo.read_tabular(rep_blastout)
+						# Convert short ID back to original ID
+						rep_results = [[r[0]]+r[1:4]+[id_mapping[r[4]]]+r[5:] for r in rep_results]
 						if len(rep_results) > 0:
 							rep_self_scores[rep_results[0][0]] = float(rep_results[0][6])
 						else:
@@ -305,7 +343,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 								f'score for {rep_results[0][0]}')
 
 				# Create file with seqids to BLAST against
-				ids_str = im.join_list([str(i) for i in ids_to_blast if i not in representatives], '\n')
+				ids_str = im.join_list([str(inverse_id_mapping[i]) for i in ids_to_blast if i not in representatives], '\n')
 				ids_file = fo.join_paths(locus_temp_dir, [f'{locus_id}_ids.txt'])
 				fo.write_to_file(ids_str, ids_file, 'w', '')
 				binary_file = f'{ids_file}.bin'
@@ -325,6 +363,8 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 
 				# Import BLAST results
 				blast_results = fo.read_tabular(blast_output)
+				# Convert short ID back to original ID
+				blast_results = [[r[0]]+r[1:4]+[id_mapping[r[4]]]+r[5:] for r in blast_results]
 
 				# Divide results into high, low and hot BSR values
 				hitting_high, hitting_low, hotspots, high_reps, low_reps, hot_reps = \
@@ -363,7 +403,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 				# Determine next representative from candidates
 				rep_candidates = list(set(hotspots) - hitting_high)
 				# Sort to guarantee reproducible results with same datasets
-				rep_candidates = sorted(rep_candidates, key=lambda x: int(x))
+				rep_candidates = sorted(rep_candidates, key=lambda x: x.split('_')[-1])
 				representatives, final_representatives = select_candidate(rep_candidates,
 																		  prot_seqs,
 																		  ids_to_blast,
@@ -378,7 +418,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			final_representatives = list(prot_seqs.keys())
 
 		# Write schema file with all alleles
-		locus_data = [[k, v] for k, v in locus_seqs.items()]
+		locus_data = [[k, v] for k, v in dna_seqs.items()]
 		locus_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, locus_data)
 		fo.write_lines(locus_lines, locus_file)
 
@@ -386,10 +426,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 		valid_sequences = len(locus_lines)
 
 		# Write schema file with representatives
-		final_representatives = [seqids_map[rep]
-								 for rep in final_representatives]
-		locus_rep_data = [[r, locus_seqs[r]]
-						  for r in final_representatives]
+		locus_rep_data = [[r, dna_seqs[r]] for r in final_representatives]
 		locus_rep_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE,
 										  locus_rep_data)
 		fo.write_lines(locus_rep_lines, locus_short_file)

@@ -170,8 +170,7 @@ def write_coordinates_pickle(gene_info, contig_sizes, output_file):
 	fo.pickle_dumper([gene_coordinates, contig_sizes], output_file)
 
 
-def predict_genome_genes(input_file, output_directory, gene_finder,
-						 translation_table):
+def predict_genome_genes(input_file, output_directory, gene_finder, translation_table):
 	"""Predict genes for sequences in a FASTA file.
 
 	Parameters
@@ -201,9 +200,11 @@ def predict_genome_genes(input_file, output_directory, gene_finder,
 		Path to the output pickle file that contains the gene
 		coordinates and contig size data.
 	"""
-	# Get genome unique identifier
-	genome_basename = input_file[1]
-	records = fao.sequence_generator(input_file[0])
+	# Get path to genome FASTA file, genome basename and alias
+	genome_path, genome_basename = input_file
+
+	# Load genome sequences
+	records = fao.sequence_generator(genome_path)
 	records = {rec.id: bytes(rec.seq) for rec in records}
 	contig_sizes = {recid: len(sequence)
 					for recid, sequence in records.items()}

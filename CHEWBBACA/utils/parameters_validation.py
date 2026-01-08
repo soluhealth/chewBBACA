@@ -16,7 +16,6 @@ import os
 import re
 import sys
 import shutil
-import hashlib
 import argparse
 import platform
 import subprocess
@@ -663,7 +662,7 @@ def hash_ptf(ptf_path):
 		Blake2b hash computed from file content.
 	"""
 	if ptf_path is not None:
-		ptf_hash = fo.hash_file(ptf_path, hashlib.blake2b())
+		ptf_hash = fo.hash_file(ptf_path, 'blake2b')
 	else:
 		ptf_hash = None
 
@@ -1255,14 +1254,15 @@ def get_file_prefixes(path_list):
 		Dictionary with file prefixes as keys and file basenames
 		as values.
 	"""
-	basenames = [fo.file_basename(file) for file in path_list]
-	prefixes = {}
-	for name in basenames:
-		prefix = fo.split_joiner(name, [0], '.')
-		prefixes.setdefault(prefix, []).append(name)
+	basenames = {fo.file_basename(file, False): file for file in path_list}
+	basename_counts = {}
+	for k, v in basenames.items():
+		if k not in basename_counts:
+			basename_counts[k] = [v]
+		else:
+			basename_counts[k] += [v]
 
-	return prefixes
-
+	return basename_counts
 
 def check_unique_prefixes(input_list):
 	"""Check if all input files have an unique identifier.
@@ -1286,7 +1286,7 @@ def check_unique_prefixes(input_list):
 
 	# Detect if some inputs share the same unique prefix
 	if len(set(prefixes)) < len(input_paths):
-		repeated_basenames = [v for k, v in prefixes.items() if len(v) > 1]
+		repeated_basenames = [f'{k}: {", ".join(v)}' for k, v in prefixes.items() if len(v) > 1]
 		repeated_basenames = [','.join(l) for l in repeated_basenames]
 		sys.exit(ct.INPUTS_SHARE_PREFIX.format('\n'.join(repeated_basenames)))
 
@@ -1343,7 +1343,7 @@ def check_prefix_length(input_list):
 	long_prefixes = {k: v for k, v in prefixes.items() if len(k) > ct.PREFIX_MAXLEN}
 	# Exit if any file prefix is longer than 30 characters
 	if len(long_prefixes) > 0:
-		long_prefixes_msg = [f'{v[0]} ({k}, {len(k)} chars)' for k, v in long_prefixes.items()]
+		long_prefixes_msg = [f'{k} ({len(k)} chars): {", ".join(v)}' for k, v in long_prefixes.items()]
 		long_prefixes_msg = '\n'.join(long_prefixes_msg)
 		sys.exit(ct.INPUTS_LONG_PREFIX.format(long_prefixes_msg))
 

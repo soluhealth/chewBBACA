@@ -13,7 +13,6 @@ line and calls the specified module.
 import os
 import sys
 import shutil
-import hashlib
 import argparse
 
 try:
@@ -215,16 +214,14 @@ def run_create_schema():
 
 	genome_list = fo.join_paths(args.output_directory, [ct.GENOME_LIST])
 	args.input_files, total_inputs = pv.check_input_type(args.input_files, genome_list)
-	# Detect if some inputs share the same unique prefix
+	# Detect if any input files share the same basename
 	repeated_prefixes = pv.check_unique_prefixes(genome_list)
 	# Detect if filenames include blank spaces
 	blank_spaces = pv.check_blanks(genome_list)
-	# Check if any input file has an unique prefix >= 50 characters
-	long_prefixes = pv.check_prefix_length(genome_list)
-	# Check if any input file prefixes are interpreted as PDB IDs
-	makeblastdb_path = fo.join_paths(args.blast_path, [ct.MAKEBLASTDB_ALIAS])
-	blastdbcmd_path = fo.join_paths(args.blast_path, [ct.BLASTDBCMD_ALIAS])
-	pdb_prefixes = pv.check_prefix_pdb(genome_list, args.output_directory, makeblastdb_path, blastdbcmd_path)
+	# Since v3.5.1, it is not mandatory for basenames to be shorter than 30 chars
+	# This means that the loci IDs defined by the CreateSchema module can be longer
+	# than the ones defined by previous versions if users provide input files with
+	# long basenames
 
 	print(f'Number of inputs: {total_inputs}')
 
@@ -245,7 +242,7 @@ def run_create_schema():
 	if args.ptf_path is not None:
 		shutil.copy(args.ptf_path, schema_dir)
 		# Determine PTF checksum
-		ptf_hash = fo.hash_file(args.ptf_path, hashlib.blake2b())
+		ptf_hash = fo.hash_file(args.ptf_path, 'blake2b')
 		print(f'Copied Prodigal training file to {schema_dir}')
 
 	# Write schema config file
@@ -404,6 +401,14 @@ def run_allele_call():
 							 'identifiers attributed by chewBBACA based '
 							 'on the allele calling results.')
 
+	parser.add_argument('--output-masked', required=False,
+						action='store_true', dest='output_masked',
+						help='Create a TSV file with the masked allelic profiles. '
+							 'The masking process removes the `INF-` prefix from '
+							 'inferred alleles and substitutes all special classes '
+							 '(NIPH, NIPHEM, ASM, ALM, PLOT3, PLOT5, LOTSC, PAMA) '
+							 'with `0`.')
+
 	parser.add_argument('--no-cleanup', required=False,
 						action='store_true', dest='no_cleanup',
 						help='If provided, intermediate files generated '
@@ -501,16 +506,16 @@ def run_allele_call():
 
 	genome_list = fo.join_paths(args.output_directory, [ct.GENOME_LIST])
 	genome_list, total_inputs = pv.check_input_type(args.input_files, genome_list)
-	# Detect if some inputs share the same unique prefix
+
+	# Detect if any input files share the same basename
 	repeated_prefixes = pv.check_unique_prefixes(genome_list)
 	# Detect if filenames include blank spaces
 	blank_spaces = pv.check_blanks(genome_list)
-	# Check if any input file has an unique prefix >= 50 characters
-	long_prefixes = pv.check_prefix_length(genome_list)
-	# Check if any input file prefixes are interpreted as PDB IDs
-	makeblastdb_path = fo.join_paths(args.blast_path, [ct.MAKEBLASTDB_ALIAS])
-	blastdbcmd_path = fo.join_paths(args.blast_path, [ct.BLASTDBCMD_ALIAS])
-	pdb_prefixes = pv.check_prefix_pdb(genome_list, args.output_directory, makeblastdb_path, blastdbcmd_path)
+	# Since v3.5.1, it is not mandatory for basenames to be shorter than 30 chars
+	# This means that the CDS IDs defined by the AlleleCall module can be longer
+	# than the ones defined by previous versions if users provide input files with
+	# long basenames. This also means that the output files will include the full
+	# basename of the input files
 
 	# Determine if schema was downloaded from Chewie-NS
 	ns_config = fo.join_paths(args.schema_directory, ['.ns_config'])
@@ -537,10 +542,11 @@ def run_allele_call():
 				'Mode': args.mode}
 
 	allele_call.main(genome_list, loci_list, args.schema_directory,
-						args.output_directory, args.no_inferred,
-						args.output_unclassified, args.output_missing,
-						args.output_novel, args.no_cleanup, args.hash_profiles,
-						args.ns, config)
+					 args.output_directory, args.no_inferred,
+					 args.output_unclassified, args.output_missing,
+					 args.output_novel, args.output_masked,
+					 args.no_cleanup, args.hash_profiles, args.ns,
+					 config)
 
 	# if args.store_profiles is True:
 	#     updated = ps.store_allelecall_results(args.output_directory, args.schema_directory)
@@ -1106,8 +1112,8 @@ def run_adapt_schema():
 		sys.exit(ct.OUTPUT_DIRECTORY_EXISTS)
 	fo.create_directory(schema_short_path)
 
-	# User provided a list of genes to call
 	loci_list = fo.join_paths(schema_path, [ct.LOCI_LIST])
+	# User provided a list of loci to adapt
 	if args.genes_list is not False:
 		loci_list = pv.validate_loci_list(args.genes_list, loci_list,
 										  args.schema_directory)
@@ -1115,16 +1121,12 @@ def run_adapt_schema():
 	else:
 		loci_list, total_loci = pv.check_input_type(args.schema_directory, loci_list)
 
-	# Detect if some inputs share the same unique prefix
+	# Detect if any input files share the same basename
 	repeated_prefixes = pv.check_unique_prefixes(loci_list)
 	# Detect if filenames include blank spaces
 	blank_spaces = pv.check_blanks(loci_list)
-	# Check if any input file has an unique prefix >= 50 characters
-	long_prefixes = pv.check_prefix_length(loci_list)
-	# Check if any input file prefixes are interpreted as PDB IDs
-	makeblastdb_path = fo.join_paths(args.blast_path, [ct.MAKEBLASTDB_ALIAS])
-	blastdbcmd_path = fo.join_paths(args.blast_path, [ct.BLASTDBCMD_ALIAS])
-	pdb_prefixes = pv.check_prefix_pdb(loci_list, args.output_directory, makeblastdb_path, blastdbcmd_path)
+	# Since v3.5.1, there is no limitation for the length of the loci basenames
+	# This means that chewBBACA can adapt schemas with longer loci IDs
 
 	print(f'Number of cores: {args.cpu_cores}')
 	print(f'BLAST Score Ratio: {args.blast_score_ratio}')
@@ -1156,7 +1158,7 @@ def run_adapt_schema():
 	if args.ptf_path is not None:
 		shutil.copy(args.ptf_path, schema_path)
 		# Determine PTF checksum
-		ptf_hash = fo.hash_file(args.ptf_path, hashlib.blake2b())
+		ptf_hash = fo.hash_file(args.ptf_path, 'blake2b')
 		print('Copied Prodigal training file to schema directory.')
 
 	# Write schema config file

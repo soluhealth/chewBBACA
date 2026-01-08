@@ -107,6 +107,10 @@ Parameters
                                 The sequence headers include the locus and allele identifiers attributed by
                                 chewBBACA based on the allele calling results (default: False).
 
+    --output-masked             (Optional) Create a TSV file with the masked allelic profiles. The masking
+                                process removes the ``INF-` prefix from inferred alleles and substitutes all
+                                special classes (NIPH, NIPHEM, ASM, ALM, PLOT3, PLOT5, LOTSC, PAMA) with `0` (default: False).
+
     --no-cleanup                (Optional) If provided, intermediate files generated during process execution are
                                 not removed at the end (default: False).
 
@@ -254,6 +258,10 @@ Outputs
 - If the ``--output-unclassified`` parameter is provided, the process will create a FASTA file, ``unclassified_sequences.fasta``, with the DNA sequences of the distinct CDSs that were not classified.
 
 - If the ``--output-missing`` parameter is provided, the process will create a FASTA file, ``missing_classes.fasta``, and a TSV file with information about the classified sequences that led to a locus being classified as *ASM*, *ALM*, *PLOT3*, *PLOT5*, *LOTSC*, *NIPH*, *NIPHEM* and *PAMA*.
+
+- If the ``--output-novel`` parameter is provided, the process will create a FASTA file, ``novel_alleles.fasta``, with the DNA sequences of the novel alleles inferred during allele calling.
+
+- If the ``--output-masked`` parameter is provided, the process will create a TSV file, ``results_alleles_masked.tsv``, with the masked allelic profiles. The masking process removes the ``INF-`` prefix from inferred alleles and substitutes all special classes (NIPH, NIPHEM, ASM, ALM, PLOT3, PLOT5, LOTSC, PAMA) with ``0``.
 
 - If the ``--hash-profiles`` parameter is provided, the process will use the provided hash algorithm to create a TSV file, ``results_alleles_hashed.tsv``, with hashed profiles (each allele identifier is substituted by the hash of the DNA sequence).
 
