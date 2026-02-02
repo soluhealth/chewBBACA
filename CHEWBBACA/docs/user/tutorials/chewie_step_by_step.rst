@@ -18,7 +18,7 @@ The objective of this tutorial is to illustrate a complete wg/cgMLST analysis us
 Before starting, please make sure to go through the following preparatory steps:
 
 	- Install chewBBACA. Check :doc:`Installation </user/getting_started/installation>` for instructions on how to install chewBBACA.
-	- Download the ZIP file with the datasets and expected results for the tutorial `here <https://zenodo.org/records/10694715>`_.
+	- Download the ZIP file with the datasets and expected results for the tutorial `here <https://doi.org/10.5281/zenodo.7129299>`_.
 	- Uncompress the ZIP file (this will create a folder named ``chewBBACA_tutorial`` that has all the necessary data).
 
 The simplified representation of the folder structure after uncompressing the ZIP file is the following:
