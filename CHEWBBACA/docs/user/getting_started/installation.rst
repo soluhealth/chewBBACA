@@ -18,6 +18,12 @@ You can also install `mamba <https://mamba.readthedocs.io/en/latest/index.html>`
 
 	mamba create -c bioconda -c conda-forge -n chewie "chewbbaca=3.5.1"
 
+After creating the environment, you can use chewBBACA by activating the environment with the following command:
+
+::
+
+	conda activate chewie
+
 .. important::
 	We strongly recommend that users install and use BLAST 2.9.0+ with chewBBACA<=3.3.2. Please open an
 	`issue <https://github.com/B-UMMI/chewBBACA/issues>`_ if you find any problems with any
