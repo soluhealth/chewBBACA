@@ -2308,7 +2308,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 											config['CPU cores'], False)
 
 	# Translated representative FASTA files mapped to loci basenames
-	repprot_to_locibase = {file[1]: fo.file_basename(file[0], False).replace('_short', '') for file in protein_files}
+	repprot_to_locibase = {file[1]: fo.file_basename(file[1], False).split('_short')[0] for file in protein_files}
 	# Translated representative FASTA files for loci being called
 	repprot_fastas = [k for k, v in repprot_to_locibase.items() if v in loci_basenames.values()]
 

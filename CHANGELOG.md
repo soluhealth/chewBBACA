@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.5.2 - 2026-03-03
+
+
+
 ## 3.5.1 - 2026-01-06
 
 chewBBACA no longer checks if input files have unique basename prefixes shorter than 30 characters. In the past, this was performed to ensure that sequence identifiers did not exceed the character limit (50 characters) enforced by BLAST when creating a database. The main changes to file name processing are the following:

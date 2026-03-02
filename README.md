@@ -17,20 +17,9 @@ BLAST Score Ratio as proposed by [Rasko DA et al.](http://bmcbioinformatics.biom
 
 ## News
 
-## 3.5.1 - 2026-01-06
+## 3.5.2 - 2026-03-03
 
-chewBBACA no longer checks if input files have unique basename prefixes shorter than 30 characters. In the past, this was performed to ensure that sequence identifiers did not exceed the character limit (50 characters) enforced by BLAST when creating a database. The main changes to file name processing are the following:
 
-- chewBBACA uses the file basename without the file extension as unique identifier (e.g. `GCF_008632635.1.fasta` is converted to `GCF_008632635.1`), instead of trying to determine the shortest unique prefix that can be used to identify each input file. It is still necessary for each file to have a unique identifier after the removal of the file extension (e.g. `GCF_008632635.1.fasta` and `GCF_008632635.1.fna` have different file extensions but the same identifier after removing the file extension, which is not allowed).
-- The CreateSchema module uses the input file basenames without the file extension to define the identifiers for the loci in the created schemas (e.g. loci initially identified in the genomes `GCF_008632635.1.fasta` and `GCA_000006785.2_ASM678v2.fasta` are named as `GCF_008632635.1-proteinN.fasta` and `GCA_000006785.2_ASM678v2-proteinN.fasta`, respectively). We still recommend using short and unique file names without special characters (e.g.: `!@#?$^*()+`) for conciseness and to avoid potential issues.
-- The AlleleCall module accepts and uses the new loci identifier format used by the CreateSchema module. The input genome or CDS files can also have basenames of any length as long as the basename without the file extension for each input file is unique. The output files created by the AlleleCall module use the full unique basenames (e.g. for the genome `GCA_000006785.2_ASM678v2.fasta`, the genome identifier used in the output files will be `GCA_000006785.2_ASM678v2`, instead of `GCA_000006785` used up until chewBBACA v3.5.0).
-- The PrepExternalSchema module accepts schemas containing loci FASTA files with basenames longer than 30 characters.
-
-Additionally, the CDS identifiers are converted to a different format (`lcl|SEQ1`, `lcl|SEQ2`...`lcl|SEQN`) before creating a BLAST database with `makeblastdb` and the `-parse_seqids` option to avoid issues related to some sequence identifiers being interpretd and modified (e.g. interpretd as PDB Chain IDs) when creating a database, resulting in errors when an identifier is modified and no longer matches the original identifier. This allowed to remove the check to verify that unique prefixes are not modified by BLAST during database creation.
-
-Additional changes:
-
-- Added the `--output-masked` option to the AlleleCall module to create a TSV file with the masked profiles (`INF-` prefixes are removed and the NIPH, NIPHEM, ASM, ALM, PLOT3, PLOT5, LOTSC, and PAMA classes are converted to `0`).
 
 Check our [Changelog](https://github.com/B-UMMI/chewBBACA/blob/master/CHANGELOG.md) to learn about the latest changes.
 
