@@ -19,7 +19,8 @@ BLAST Score Ratio as proposed by [Rasko DA et al.](http://bmcbioinformatics.biom
 
 ## 3.5.2 - 2026-03-03
 
-
+- Fixed issue in the PrepExternalSchema module related to the addition of loci prefixes to sequence headers when the original schema did not use prefixes (e.g., schemas from [cgMLST.org](https://www.cgmlst.org/ncs)).
+- Fixed issue in the PrepExternalSchema module related to saving some alleles to the final FASTA files in the incorrect orientation.
 
 Check our [Changelog](https://github.com/B-UMMI/chewBBACA/blob/master/CHANGELOG.md) to learn about the latest changes.
 
