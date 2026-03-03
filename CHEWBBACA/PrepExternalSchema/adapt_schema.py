@@ -229,11 +229,11 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 		# Create temp directory for the current gene
 		fo.create_directory(locus_temp_dir)
 
-		# Import DNA sequences
-		dna_seqs = fao.import_sequences(locus)
-		total_sequences = len(dna_seqs)
 		# Translate sequences
-		_, protein_file, _, invalid = fao.translate_fasta(locus, locus_temp_dir, table_id)
+		dna_file, protein_file, _, invalid = fao.translate_fasta(locus, locus_temp_dir, table_id, True)
+		# Import DNA sequences only after translating to avoid importing sequences that cannot be translated
+		dna_seqs = fao.import_sequences(dna_file)
+		total_sequences = len(dna_seqs) + len(invalid)
 		prot_seqs = fao.import_sequences(protein_file)
 		# Get the IDs of alleles that could not be translated
 		excluded = set([s[0] for s in invalid])
@@ -247,6 +247,8 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			st_percentage = int(size_threshold*100)
 			invalid += [[s, ct.ALM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in alm]
 			invalid += [[s, ct.ASM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in asm]
+
+		invalid = [[i[0] if locus_id in i[0] else f'{locus_id}_{i[0]}', i[1]] for i in invalid]
 
 		invalid_alleles.extend(invalid)
 
@@ -418,7 +420,9 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			final_representatives = list(prot_seqs.keys())
 
 		# Write schema file with all alleles
-		locus_data = [[k, v] for k, v in dna_seqs.items()]
+		# Add locus identifier as prefix to sequence IDs
+		# Some external schemas, such as schemas from cgMLST.org, do not include the locus identifier in the sequence headers
+		locus_data = [[k, v] if locus_id in k else [f'{locus_id}_{k}', v] for k, v in dna_seqs.items()]
 		locus_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, locus_data)
 		fo.write_lines(locus_lines, locus_file)
 
@@ -426,12 +430,13 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 		valid_sequences = len(locus_lines)
 
 		# Write schema file with representatives
-		locus_rep_data = [[r, dna_seqs[r]] for r in final_representatives]
+		# Do not forget to add locus identifier as prefix to sequence IDs if it is not included in the original ID
+		locus_rep_data = [[r, dna_seqs[r]] if locus_id in r else [f'{locus_id}_{r}', dna_seqs[r]] for r in final_representatives]
 		locus_rep_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE,
 										  locus_rep_data)
 		fo.write_lines(locus_rep_lines, locus_short_file)
 
-		# get number of representatives
+		# Determine the number of representatives for current locus
 		representatives_number = len(locus_rep_lines)
 
 		summary_stats.append([locus_id,
@@ -518,7 +523,7 @@ def main(input_files, output_directories, cpu_cores, blast_score_ratio,
 	schema_basename = fo.file_basename(schema_path.rstrip('/'))
 	parent_directory = os.path.dirname(schema_path)
 
-	# write file with alleles that were determined to be invalid
+	# Write file with alleles that were determined to be invalid
 	invalid_alleles = [sub[0] for sub in invalid_data]
 	invalid_alleles = list(itertools.chain.from_iterable(invalid_alleles))
 	invalid_alleles_file = os.path.join(parent_directory,
