@@ -226,13 +226,13 @@ def parallelize_function(function, inputs, common_args=None,
 	results : list
 		List with the results returned by the function calls.
 	"""
-	# create chunks to distribute per cores
+	# Create chunks to distribute per cores
 	input_lists = im.divide_list_into_n_chunks(inputs, len(inputs))
 
 	if common_args is None:
 		common_args = []
 
-	# add common arguments to all sublists
+	# Add common arguments to all sublists
 	input_lists = im.multiprocessing_inputs(input_lists,
 											common_args,
 											function)

@@ -1,8 +1,7 @@
 Important Notes
 ===============
 
-- chewBBACA only works with **Python 3** (automatic testing for Python 3.8-3.11
-  with GitHub Actions).
+- chewBBACA only works with **Python >=3.10** (automatic testing for Python 3.10-3.14 with GitHub Actions).
 - We strongly recommend that users install and use **BLAST 2.9.0+** with chewBBACA<=3.3.2, as the files passed to ``-seqidlist`` are not converted to
   a binary format with ``blastdb_aliastool``, which might affect performance in some cases if using BLAST>=2.10. This is not an issue in chewBBACA>=3.3.3
   because it determines if the files should be converted to the binary format based on the BLAST version.

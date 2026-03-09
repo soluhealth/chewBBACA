@@ -314,7 +314,8 @@ def compute_locus_statistics(locus, translation_table, minimum_length,
 	# Translate alleles and capture translation exceptions
 	_, protein_file, _, exceptions = fao.translate_fasta(locus,
 														 translation_dir,
-														 translation_table)
+														 translation_table,
+														 False)
 	# If some sequence headers include "*", reformat FASTA file to remove "*"
 	# Reformatting protein files uses less disk space than reformatting DNA
 	if len(ns_alleles) > 0:

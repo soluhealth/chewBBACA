@@ -2304,10 +2304,11 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 	reps_protein_dir = fo.join_paths(temp_directory, ['3_translated_representatives'])
 	fo.create_directory(reps_protein_dir)
 	protein_files = mo.parallelize_function(fao.translate_fasta, rep_full_list,
-											[reps_protein_dir, config['Translation table']],
+											[reps_protein_dir, config['Translation table'], False],
 											config['CPU cores'], False)
 
 	# Translated representative FASTA files mapped to loci basenames
+	# This should not return any paths as NoneType because all schema files should include only translatable alleles
 	repprot_to_locibase = {file[1]: fo.file_basename(file[1], False).split('_short')[0] for file in protein_files}
 	# Translated representative FASTA files for loci being called
 	repprot_fastas = [k for k, v in repprot_to_locibase.items() if v in loci_basenames.values()]
