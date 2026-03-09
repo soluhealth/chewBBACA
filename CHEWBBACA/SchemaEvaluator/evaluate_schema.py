@@ -791,22 +791,26 @@ def main(schema_directory, output_directory, genes_list, annotations,
 
 		# Call the ComputeMSA module to compute the loci MSAs
 		protein_files_dir = distinct_dir
-		# Need to pass complete MAFFT default parameters defined in constants.py to create tree output
-		print('Calling the ComputeMSA module to compute the loci MSAs...')
-		msa_files_dir = compute_msa.main(protein_files_dir, temp_directory, None, False, False,
-					   translation_table, cpu_cores, False, 'exclude', 'exclude', ' '.join(ct.MAFFT_DEFAULT_PARAMETERS), True, True)
-		msa_files_dir = fo.join_paths(msa_files_dir, ['protein'])
-		msa_files = fo.listdir_fullpath(msa_files_dir)
-		msa_files_dict = {fo.file_basename(f, False).replace('_distinct', ''): f for f in msa_files}
+		# Check if there are any protein files to compute MSAs for before calling the ComputeMSA module
+		if len(os.listdir(protein_files_dir)) > 0:
+			# Need to pass complete MAFFT default parameters defined in constants.py to create tree output
+			print('Calling the ComputeMSA module to compute the loci MSAs...')
+			msa_files_dir = compute_msa.main(protein_files_dir, temp_directory, None, False, False,
+						translation_table, cpu_cores, False, 'exclude', 'exclude', ' '.join(ct.MAFFT_DEFAULT_PARAMETERS), True, True)
+			msa_files_dir = fo.join_paths(msa_files_dir, ['protein'])
+			msa_files = fo.listdir_fullpath(msa_files_dir)
+			msa_files_dict = {fo.file_basename(f, False).replace('_distinct', ''): f for f in msa_files}
 
-		# Copy tree files to diretory with MSA files
-		tree_files_dir = fo.join_paths(temp_directory, ['input_files'])
-		tree_files = fo.listdir_fullpath(tree_files_dir, '.tree')
-		for tf in tree_files:
-			shutil.copy(tf, msa_files_dir)
+			# Copy tree files to diretory with MSA files
+			tree_files_dir = fo.join_paths(temp_directory, ['input_files'])
+			tree_files = fo.listdir_fullpath(tree_files_dir, '.tree')
+			for tf in tree_files:
+				shutil.copy(tf, msa_files_dir)
 
-		# Delete temporary directory with input files
-		fo.delete_directory(tree_files_dir)
+			# Delete temporary directory with input files
+			fo.delete_directory(tree_files_dir)
+		else:
+			msa_files_dict = {}
 
 		inputs = [[loci_basenames[d[0]],
 			 	   d,
