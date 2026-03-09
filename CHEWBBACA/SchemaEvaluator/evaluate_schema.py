@@ -318,7 +318,8 @@ def compute_locus_statistics(locus, translation_table, minimum_length,
 														 False)
 	# If some sequence headers include "*", reformat FASTA file to remove "*"
 	# Reformatting protein files uses less disk space than reformatting DNA
-	if len(ns_alleles) > 0:
+	# Do not attempt to reformat if no sequences could be translated and protei_file is a NoneType
+	if len(ns_alleles) > 0 and len(protein_file) < nr_alleles:
 		records = fao.sequence_generator(protein_file)
 		records = [[(rec.id).replace('*', ''), str(rec.seq)] for rec in records]
 		output_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, records)
@@ -326,19 +327,23 @@ def compute_locus_statistics(locus, translation_table, minimum_length,
 		fo.write_lines(output_lines, protein_file)
 
 	# Determine distinct proteins
-	translated_alleles = fao.import_sequences(protein_file)
-	distinct_proteins = sm.determine_duplicated_seqs(translated_alleles)
-	distinct_records = [[v[0], k]
+	if protein_file is not None:
+		translated_alleles = fao.import_sequences(protein_file)
+		distinct_proteins = sm.determine_duplicated_seqs(translated_alleles)
+		distinct_records = [[v[0], k]
+							for k, v in distinct_proteins.items()]
+		distinct_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, distinct_records)
+		distinct_file = fo.join_paths(distinct_dir, [f'{locus_id}_distinct.fasta'])
+		fo.write_lines(distinct_lines, distinct_file)
+		distinct_ids = [[get_alleleID(i) for i in v]
 						for k, v in distinct_proteins.items()]
-	distinct_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, distinct_records)
-	distinct_file = fo.join_paths(distinct_dir, [f'{locus_id}_distinct.fasta'])
-	fo.write_lines(distinct_lines, distinct_file)
-	distinct_ids = [[get_alleleID(i) for i in v]
-					for k, v in distinct_proteins.items()]
-	distinct_ids = [[v[0], v] for v in distinct_ids]
-	# Sort in order of decreasing length
-	distinct_ids = sorted(distinct_ids, key=lambda x: len(x[1]), reverse=True)
-	distinct_ids = sorted(distinct_ids, key=lambda x: x[0])
+		distinct_ids = [[v[0], v] for v in distinct_ids]
+		# Sort in order of decreasing length
+		distinct_ids = sorted(distinct_ids, key=lambda x: len(x[1]), reverse=True)
+		distinct_ids = sorted(distinct_ids, key=lambda x: x[0])
+	else:
+		distinct_file = None
+		distinct_ids = []
 
 	exceptions = {str(get_alleleID(exc[0])): exc[1] for exc in exceptions}
 	exceptions_values = list(exceptions.values())
@@ -481,11 +486,12 @@ def locus_report(locus_file, locus_data, annotation_columns,
 	protein_sequences = {"sequences": []}
 	# Include DNA and Protein sequences if --add-sequences was provided
 	if add_sequences is True:
-		protein_records = fao.sequence_generator(locus_data[17])
-		for record in protein_records:
-			allele_id = get_alleleID(record.id)
-			protein_sequences["sequences"].append({"name": allele_id,
-												   "sequence": str(record.seq)})
+		if locus_data[17] is not None:
+			protein_records = fao.sequence_generator(locus_data[17])
+			for record in protein_records:
+				allele_id = get_alleleID(record.id)
+				protein_sequences["sequences"].append({"name": allele_id,
+													"sequence": str(record.seq)})
 		dna_records = fao.sequence_generator(locus_file)
 		for record in dna_records:
 			allele_id = get_alleleID(record.id)
@@ -677,7 +683,7 @@ def main(schema_directory, output_directory, genes_list, annotations,
 										cpu_cores,
 										show_progress=True)
 
-	# group values for the same statistic
+	# Group values for the same statistic
 	data = list(zip(*results))
 
 	# Read loci annotations from TSV file
@@ -784,7 +790,7 @@ def main(schema_directory, output_directory, genes_list, annotations,
 		loci_data = results
 
 		# Call the ComputeMSA module to compute the loci MSAs
-		protein_files_dir = os.path.dirname(loci_data[0][18])
+		protein_files_dir = distinct_dir
 		# Need to pass complete MAFFT default parameters defined in constants.py to create tree output
 		print('Calling the ComputeMSA module to compute the loci MSAs...')
 		msa_files_dir = compute_msa.main(protein_files_dir, temp_directory, None, False, False,
@@ -806,7 +812,7 @@ def main(schema_directory, output_directory, genes_list, annotations,
 			 	   d,
 				   annotation_values[0],
 				   annotations_dict.get(d[0], []),
-				   msa_files_dict[d[0]]] for d in loci_data]
+				   msa_files_dict.get(d[0], None)] for d in loci_data]
 
 		common_args = [html_dir, minimum_length, light, add_sequences]
 
