@@ -516,7 +516,7 @@ def translate_fasta(input_fasta, output_directory, translation_table, write_dna=
 			 		  for rec in translated_records
 			 		  if type(rec[1]) == list]
 
-	translated = len(valid_protein_lines)
+	translated = len(valid_proteins)
 
 	# Do not attempt to create output FASTA files if none of the DNA sequences could be translated
 	if len(valid_proteins) == 0:
