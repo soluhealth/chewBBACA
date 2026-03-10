@@ -11,8 +11,12 @@ Code documentation
 """
 
 
+import warnings
+
 from Bio import SeqIO
 from Bio.SeqIO import FastaIO
+# Import warning class to ignore warnings during FASTA file validation
+from Bio import BiopythonDeprecationWarning
 
 try:
 	from utils import (file_operations as fo,
@@ -240,13 +244,22 @@ def validate_fasta(file_path):
 
 	Returns
 	-------
-	True if file has valid FASTA format,
-	False otherwise.
+	True if file is a valid FASTA, False otherwise.
 	"""
-	# Empty list if file is empty or has any problem
-	# Need to convert to list to exhaust generator
-	# Otherwise it might increase memory usage
-	records = list(sequence_generator(file_path))
+	# Should return and empty list if file is empty or has any problem
+	try:
+		# Need to ignore warning if it is not a FASTA file or if it is but has comments or special characters at the start of the file
+		# Biopython used to simply return an empty list for non-FASTA files and ignore comments or special characters, but Biopython 1.86 raises a deprecation warning
+		# Need to use the warnings module to ignore warnings of category BiopythonDeprecationWarning
+		with warnings.catch_warnings():
+			warnings.filterwarnings('ignore', category=BiopythonDeprecationWarning)
+			# Need to convert to list to exhaust generator
+			# Otherwise it might increase memory usage
+			records = list(sequence_generator(file_path))
+	# Future Biopython versions will raise a ValueError and this try/except block was added to take that into consideration
+	# This assumes that either it is not a FASTA file or has comments or special characters at the start
+	except ValueError:
+		records = []
 
 	return any(records)
 
