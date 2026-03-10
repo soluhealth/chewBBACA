@@ -17,10 +17,13 @@ BLAST Score Ratio as proposed by [Rasko DA et al.](http://bmcbioinformatics.biom
 
 ## News
 
-## 3.5.2 - 2026-03-03
+## 3.5.3 - 2026-03-10
 
-- Fixed issue in the PrepExternalSchema module related to the addition of loci prefixes to sequence headers when the original schema did not use prefixes (e.g., schemas from [cgMLST.org](https://www.cgmlst.org/ncs)).
-- Fixed issue in the PrepExternalSchema module related to saving some alleles to the final FASTA files in the incorrect orientation.
+- Fixed issue on the PrepExternalSchema module related to reading empty FASTA files after attempting to translate FASTA files from external schemas that contained no valid alleles. This issue did not affect the end result because the PrepExternalSchema module would detect that no alleles could be translated, skipping the next steps for that locus. However, not reading empty FASTA files avoids a warning raised by Biopython that could lead to errors in future releases.
+
+- Add support for more recent versions of Numpy, SciPy, and Pandas (the versions of these dependencies were fixed to older versions due to past issues installing Pandas).
+
+- Drop support for Python<=3.9. chewBBACA now requires Python>=3.10.
 
 Check our [Changelog](https://github.com/B-UMMI/chewBBACA/blob/master/CHANGELOG.md) to learn about the latest changes.
 

@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chewBBACA"
-version = "3.5.2"
-requires-python = ">=3.8"
+version = "3.5.3"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy~=1.24.3",
-    "scipy~=1.10.1",
-    "biopython>=1.79",
-    "plotly>=5.8.0",
+    "numpy>=2.0.0",
+    "scipy>=1.13.0",
+    "biopython>=1.86",
+    "plotly>=6.3.1",
     "SPARQLWrapper>=2.0.0",
-    "pandas>=1.5.1,<2.1",
     "requests>=2.27.1",
+    "pandas==2.3.3",
     "pyrodigal>=3.0.0"
 ]
 authors = [
@@ -48,10 +48,11 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Natural Language :: English",
     "Operating System :: Unix",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]

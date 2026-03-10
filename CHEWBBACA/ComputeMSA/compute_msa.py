@@ -347,8 +347,9 @@ def main(input_path, output_directory, schema_directory, dna_msa, output_variabl
 			dna_files = copied_files
 			translated_outdir = fo.join_paths(output_directory, ['translated'])
 			fo.create_directory(translated_outdir)
-			protein_files = [fao.translate_fasta(file, translated_outdir, translation_table) for file in copied_files]
-			protein_files = [result[1] for result in protein_files]
+			protein_files = [fao.translate_fasta(file, translated_outdir, translation_table, False) for file in copied_files]
+			# Do not store result if files included no alleles that could be translated
+			protein_files = [result[1] for result in protein_files if result[1] is not None]
 		# If input files contain protein sequences
 		else:
 			dna_files = []

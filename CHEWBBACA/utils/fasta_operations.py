@@ -499,35 +499,43 @@ def translate_fasta(input_fasta, output_directory, translation_table, write_dna=
 		be translated. Each sublist includes a sequence identifier
 		and a exception message.
 	"""
+	# Import DNA sequences from the input FASTA file
 	records = import_sequences(input_fasta)
+	# Translate the DNA sequences
 	translated_records = [[seqid,
 						   sm.translate_dna(seq, translation_table, 0)]
 						  for seqid, seq in records.items()]
 
-	# Also need to get exceptions for alleles that could not be translated
+	# Get the exceptions for the sequences that could not be translated
 	invalid = [[rec[0], rec[1]]
 			   for rec in translated_records
 			   if type(rec[1]) == str]
 
-	# Only keep records that could be translated
+	# Get the valid translated sequences
 	valid_proteins = [[rec[0], str(rec[1][0][0])]
 			 		  for rec in translated_records
 			 		  if type(rec[1]) == list]
 
-	# Save protein sequences to a FASTA file
-	valid_proteins_lines = fasta_lines(ct.FASTA_RECORD_TEMPLATE, valid_proteins)
-	translated = len(valid_proteins_lines)
+	translated = len(valid_proteins)
+
+	# Do not attempt to create output FASTA files if none of the DNA sequences could be translated
+	if len(valid_proteins) == 0:
+		# Return NoneType for the output file paths
+		return [None, None, translated, invalid]
+
+	# Save protein sequences if there were any valid translations
+	valid_protein_lines = fasta_lines(ct.FASTA_RECORD_TEMPLATE, valid_proteins)
 	protein_file_basename = fo.file_basename(input_fasta, False) + '_protein.fasta'
 	protein_file_path = fo.join_paths(output_directory, [protein_file_basename])
-	fo.write_lines(valid_proteins_lines, protein_file_path)
+	fo.write_lines(valid_protein_lines, protein_file_path)
 
+	# Write DNA sequences that could be translated to a FASTA file if requested
+	# This is useful to get a FASTA file containing only the valid alleles
 	if write_dna is True:
 		# Identify DNA sequences that could be translated
 		valid_dna = [[rec[0], str(rec[1][0][1])]
 					 for rec in translated_records
 					 if type(rec[1]) == list]
-
-		# Save DNA sequences that could be translated to a FASTA file if there were any invalid sequences
 		valid_dna_lines = fasta_lines(ct.FASTA_RECORD_TEMPLATE, valid_dna)
 		dna_file_basename = fo.file_basename(input_fasta)
 		dna_file_path = fo.join_paths(output_directory, [dna_file_basename])

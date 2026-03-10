@@ -231,34 +231,44 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 
 		# Translate sequences
 		dna_file, protein_file, _, invalid = fao.translate_fasta(locus, locus_temp_dir, table_id, True)
-		# Import DNA sequences only after translating to avoid importing sequences that cannot be translated
-		dna_seqs = fao.import_sequences(dna_file)
-		total_sequences = len(dna_seqs) + len(invalid)
-		prot_seqs = fao.import_sequences(protein_file)
-		# Get the IDs of alleles that could not be translated
+		# Get seqids of alleles that could not be translated
 		excluded = set([s[0] for s in invalid])
 
-		if size_threshold is not None and len(prot_seqs) > 0:
-			# Remove alleles based on length mode and size threshold
-			modes, alm, asm, allele_sizes = sm.mode_filter(dna_seqs, size_threshold)
-			excluded.add(set(asm + alm))
+		# FASTA file included valid alleles
+		if protein_file:
+			# Import DNA sequences only after translating to avoid importing sequences that cannot be translated
+			dna_seqs = fao.import_sequences(dna_file)
+			total_sequences = len(dna_seqs) + len(invalid)
+			prot_seqs = fao.import_sequences(protein_file)
+			# Get the IDs of alleles that could not be translated
 
-			modes_concat = ':'.join(map(str, modes))
-			st_percentage = int(size_threshold*100)
-			invalid += [[s, ct.ALM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in alm]
-			invalid += [[s, ct.ASM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in asm]
+			if size_threshold is not None and len(prot_seqs) > 0:
+				# Remove alleles based on length mode and size threshold
+				modes, alm, asm, allele_sizes = sm.mode_filter(dna_seqs, size_threshold)
+				excluded.add(set(asm + alm))
 
+				modes_concat = ':'.join(map(str, modes))
+				st_percentage = int(size_threshold*100)
+				invalid += [[s, ct.ALM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in alm]
+				invalid += [[s, ct.ASM_MSG.format(st_percentage, allele_sizes[s], modes_concat)] for s in asm]
+
+			# Remove excluded alleles
+			dna_seqs = {seqid: seq
+						for seqid, seq in dna_seqs.items()
+						if seqid not in excluded}
+			prot_seqs = {seqid: seq
+						for seqid, seq in prot_seqs.items()
+						if seqid not in excluded}
+		# If no sequences could be translated, remove temp directory, add locus to invalid loci and continue to next locus
+		else:
+			dna_seqs = {}
+			prot_seqs = {}
+			total_sequences = len(invalid)
+
+		# Prepare list of invalid alleles to write
+		# Add locus identifier as prefix to allele IDs if it is not included in the original ID
 		invalid = [[i[0] if locus_id in i[0] else f'{locus_id}_{i[0]}', i[1]] for i in invalid]
-
 		invalid_alleles.extend(invalid)
-
-		# Remove excluded alleles
-		dna_seqs = {seqid: seq
-					for seqid, seq in dna_seqs.items()
-					if seqid not in excluded}
-		prot_seqs = {seqid: seq
-					for seqid, seq in prot_seqs.items()
-					if seqid not in excluded}
 
 		# Continue to next locus if there are no valid CDSs for current locus
 		if len(prot_seqs) == 0:

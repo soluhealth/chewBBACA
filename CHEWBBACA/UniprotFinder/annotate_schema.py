@@ -154,7 +154,7 @@ def proteome_annotations(schema_directory, temp_directory, taxa,
 
 	reps_protein_files = mo.parallelize_function(fao.translate_fasta,
 												 reps_paths,
-												 [translated_reps, translation_table],
+												 [translated_reps, translation_table, False],
 												 cpu_cores, True)
 	reps_protein_files = [r[1] for r in reps_protein_files]
 
@@ -371,7 +371,7 @@ def main(schema_directory, output_directory, genes_list, protein_table,
 	fo.create_directory(temp_directory)
 
 	# Validate input files
-	# User provided a list of genes to call
+	# User provided a list of genes to annotate
 	loci_list = fo.join_paths(temp_directory, [ct.LOCI_LIST])
 	if genes_list is not False:
 		loci_list = pv.validate_loci_list(genes_list, loci_list, schema_directory)

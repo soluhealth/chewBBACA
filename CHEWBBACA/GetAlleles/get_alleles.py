@@ -156,7 +156,7 @@ def main(input_file, schema_directory, genes_list, output_directory, cpu_cores, 
 		translated_alleles_directory = fo.join_paths(output_directory, ['translated_fastas'])
 		fo.create_directory(translated_alleles_directory)
 		print('Translating alleles...')
-		inputs = [[file, translated_alleles_directory, translation_table, fao.translate_fasta] for file in fasta_files]
+		inputs = [[file, translated_alleles_directory, translation_table, False, fao.translate_fasta] for file in fasta_files]
 		protein_files = mo.map_async_parallelizer(inputs, mo.function_helper, cpu_cores)
 		# Only keep the translated files
 		protein_files = [f[1] for f in protein_files]
