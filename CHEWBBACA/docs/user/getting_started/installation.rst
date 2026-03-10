@@ -42,14 +42,14 @@ Install using `pip <https://pypi.org/project/chewBBACA/>`_:
 Python dependencies
 ...................
 
-* numpy ~=1.24.3
-* scipy ~=1.10.1
-* biopython >=1.79
-* plotly >=5.8.0
-* SPARQLWrapper >=2.0.0
-* requests >=2.27.1
-* pandas >=1.5.1,<2.1
-* pyrodigal >=3.0.0 (for chewBBACA >=3.3.0)
+* numpy>=2.0.0
+* scipy>=1.13.0
+* biopython>=1.86
+* plotly>=6.3.1
+* SPARQLWrapper>=2.0.0
+* requests>=2.27.1
+* pandas==2.3.3
+* pyrodigal>=3.0.0 (for chewBBACA>=3.3.0)
 
 .. note::
 	These dependencies are defined in the `requirements <https://github.com/B-UMMI/chewBBACA/blob/master/CHEWBBACA/requirements.txt>`_
@@ -58,10 +58,10 @@ Python dependencies
 Other dependencies
 ..................
 
-* `BLAST >=2.9.0 <https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/>`_ (we recommend using BLAST 2.9.0+)
-* `Prodigal >=2.6.3 <https://github.com/hyattpd/prodigal/releases/>`_ (for chewBBACA <3.3.0)
-* `MAFFT >=7.505 <https://mafft.cbrc.jp/alignment/software/>`_ (used by the SchemaEvaluator module only)
-* `FastTree >=2.1.11 <http://www.microbesonline.org/fasttree/>`_ (used by the AlleleCallEvaluator module only)
+* `BLAST>=2.9.0 <https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/>`_ (we recommend using BLAST 2.9.0+)
+* `Prodigal>=2.6.3 <https://github.com/hyattpd/prodigal/releases/>`_ (for chewBBACA<3.3.0)
+* `MAFFT>=7.505 <https://mafft.cbrc.jp/alignment/software/>`_ (used by the SchemaEvaluator module only)
+* `FastTree>=2.1.11 <http://www.microbesonline.org/fasttree/>`_ (used by the AlleleCallEvaluator module only)
 
 .. important::
 	Installation through conda should take care of all dependencies. If you install through
