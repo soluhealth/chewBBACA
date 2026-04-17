@@ -338,8 +338,8 @@ def main(input_path, output_directory, schema_directory, dna_msa, output_variabl
 		fo.create_directory(copied_dir)
 		copied_files = []
 		for file in files_to_copy:
-			fo.copy_file(file, copied_dir)
-			copied_files.append(fo.join_paths(copied_dir, [os.path.basename(file)]))
+			copied_file = fo.copy_file(file, copied_dir)
+			copied_files.append(copied_file)
 
 		# Define list of files with DNA and protein sequences
 		# If input files contain DNA sequences, translate to protein

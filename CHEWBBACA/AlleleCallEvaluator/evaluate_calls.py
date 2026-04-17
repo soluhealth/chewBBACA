@@ -353,68 +353,70 @@ def main(input_files, schema_directory, output_directory, annotations,
 			   {"sample_ids": []}]
 	cgMLST_genes = []
 	if light is False:
-		if False in [no_pa, no_dm, no_tree] or cg_alignment is True:
-			# Define path to TSV file that contains allelic profiles
-			allelic_profiles_file = fo.join_paths(input_files,
-												  [ct.RESULTS_ALLELES_BASENAME])
+		# Define path to TSV file that contains allelic profiles
+		allelic_profiles_file = fo.join_paths(input_files,
+												[ct.RESULTS_ALLELES_BASENAME])
 
-			# Import matrix with allelic profiles
-			print('Reading profile matrix...', end='')
-			profiles_matrix = pd.read_csv(allelic_profiles_file,
-										  header=0, index_col=0,
-										  sep='\t', low_memory=False)
-			# Convert Index values to str to avoid issues with IDs that can be interpreted as int
-			profiles_matrix.index = profiles_matrix.index.astype('string')
-			print('done.')
-			# Mask missing data
-			print('Masking profile matrix...', end='')
-			masked_profiles = profiles_matrix.apply(im.replace_chars)
-			output_masked = os.path.join(output_directory, ct.MASKED_PROFILES_BASENAME)
-			masked_profiles.to_csv(output_masked, sep='\t')
-			print('done.')
-			# Compute Presence-Absence matrix
-			print('Computing Presence-Absence matrix...', end='')
-			pa_matrix, pa_outfile = determine_cgmlst.presAbs(masked_profiles,
-															 output_directory)
-			print('done.')
+		# Import matrix with allelic profiles
+		print('Reading profile matrix...', end='')
+		profiles_matrix = pd.read_csv(allelic_profiles_file,
+										header=0, index_col=0,
+										sep='\t', low_memory=False)
+		# Convert Index values to str to avoid issues with IDs that can be interpreted as int
+		profiles_matrix.index = profiles_matrix.index.astype('string')
+		print('done.')
+		# Mask missing data
+		print('Masking profile matrix...', end='')
+		masked_profiles = profiles_matrix.apply(im.replace_chars)
+		output_masked = os.path.join(output_directory, ct.MASKED_PROFILES_BASENAME)
+		masked_profiles.to_csv(output_masked, sep='\t')
+		print('done.')
+		# Compute Presence-Absence matrix
+		print('Computing Presence-Absence matrix...', end='')
+		pa_matrix, pa_outfile = determine_cgmlst.presAbs(masked_profiles, output_directory)
+		# Sort Presence-Absence matrix based on decreasing loci presence
+		# Doing this ensures that the loci in the heatmap are sorted based on their presence, which is more informative
+		# Additionally, sorting it here ensures that the order of the loci in the MSA is always the same, even when `--no-pa` is provided
+		sorted_loci = [x[0] for x in loci_stats]
+		pa_matrix = pa_matrix[sorted_loci]
+		print('done.')
 
-			if no_pa is False:
-				# Sort Presence-Absence matrix based on decreasing loci presence
-				sorted_loci = [x[0] for x in loci_stats]
-				pa_matrix = pa_matrix[sorted_loci]
-				sorted_samples = pa_matrix.index.tolist()
-				pa_data = [{"rows": pa_matrix.values.tolist()},
-						   {"loci_ids": sorted_loci},
-						   {"sample_ids": sorted_samples}]
+		# Presence-Absence matrix
+		if no_pa is False:
+			sorted_samples = pa_matrix.index.tolist()
+			pa_data = [{"rows": pa_matrix.values.tolist()},
+						{"loci_ids": sorted_loci},
+						{"sample_ids": sorted_samples}]
 
-			if no_dm is False or no_tree is False or cg_alignment is True:
-				# Compute the cgMLST at 100%
-				print('Determining cgMLST loci...')
-				cgMLST_genes, _ = determine_cgmlst.compute_cgMLST(pa_matrix, sample_ids,
-																  1, len(sample_ids))
-				cgMLST_genes = cgMLST_genes.tolist()
-				print('\n', f'cgMLST is composed of {len(cgMLST_genes)} loci.')
-				if len(cgMLST_genes) > 0:
-					cgMLST_matrix = masked_profiles[cgMLST_genes]
-					cgMLST_matrix_outfile = os.path.join(output_directory, ct.CGMLST_PROFILES_BASENAME)
-					cgMLST_matrix.to_csv(cgMLST_matrix_outfile, sep='\t')
+		# Determine the set of cgMLST loci and profiles
+		if no_dm is False or no_tree is False or cg_alignment is True:
+			# Compute the cgMLST at 100%
+			print('Determining cgMLST loci...')
+			cgMLST_genes, _ = determine_cgmlst.compute_cgMLST(pa_matrix, sample_ids,
+																1, len(sample_ids))
+			cgMLST_genes = cgMLST_genes.tolist()
+			print('\n', f'cgMLST is composed of {len(cgMLST_genes)} loci.')
+			if len(cgMLST_genes) > 0:
+				cgMLST_matrix = masked_profiles[cgMLST_genes]
+				cgMLST_matrix_outfile = os.path.join(output_directory, ct.CGMLST_PROFILES_BASENAME)
+				cgMLST_matrix.to_csv(cgMLST_matrix_outfile, sep='\t')
 
-			if no_dm is False:
-				# Compute distance matrix
-				# Based on cgMLST profiles
-				if len(cgMLST_genes) > 0:
-					dm_file = dm.main(cgMLST_matrix_outfile, output_directory,
-									  cpu_cores, True, True)
-					# Import distance matrix
-					distance_m = pd.read_csv(dm_file[0], header=0, index_col=0,
-											 sep='\t', low_memory=False)
-					# Convert Index values and column names to str to avoid issues with IDs that can be interpreted as int
-					distance_m.index = distance_m.index.astype('string')
-					distance_m.columns = distance_m.columns.astype('string')
-					dm_data = [{"rows": distance_m.values.tolist()},
-							   {"sample_ids": distance_m.columns.tolist()}]
-				else:
-					print('cgMLST is composed of 0 loci. Cannot compute distance matrix.')
+		if no_dm is False:
+			# Compute distance matrix
+			# Based on cgMLST profiles
+			if len(cgMLST_genes) > 0:
+				dm_file = dm.main(cgMLST_matrix_outfile, output_directory,
+									cpu_cores, True, True)
+				# Import distance matrix
+				distance_m = pd.read_csv(dm_file[0], header=0, index_col=0,
+											sep='\t', low_memory=False)
+				# Convert Index values and column names to str to avoid issues with IDs that can be interpreted as int
+				distance_m.index = distance_m.index.astype('string')
+				distance_m.columns = distance_m.columns.astype('string')
+				dm_data = [{"rows": distance_m.values.tolist()},
+							{"sample_ids": distance_m.columns.tolist()}]
+			else:
+				print('cgMLST is composed of 0 loci. Cannot compute distance matrix.')
 
 		# Only using the loci in the cgMLST
 		# Might have to change if we need to work with all loci in the future
@@ -425,13 +427,16 @@ def main(input_files, schema_directory, output_directory, annotations,
 				compute_msa.main(cgMLST_matrix_outfile, temp_directory, schema_directory, False, False,
 					   translation_table, cpu_cores, False, 'exclude', 'exclude', None, False, False)
 
-				full_alignment = fo.join_paths(temp_directory, [ct.COMPUTEMSA_PROTEIN_MSA])
+				# Copy the cgMLST alignment to the output directory
+				original_alignment = fo.join_paths(temp_directory, [ct.COMPUTEMSA_PROTEIN_MSA])
+				destination_alignment = fo.copy_file(original_alignment, output_directory)
 
 				if no_tree is False:
 					print('Computing the NJ tree based on the core genome MSA...', end='')
-					# Compute NJ tree with FastTree
+					# Define path to output tree file
 					out_tree = fo.join_paths(output_directory, ['cgMLST.tree'])
-					fw.call_fasttree(full_alignment, out_tree)
+					# Compute NJ tree with FastTree
+					fw.call_fasttree(destination_alignment, out_tree)
 					phylo_data = fo.read_file(out_tree)
 					phylo_data = {"phylo_data": phylo_data}
 					print('done.')
@@ -462,15 +467,14 @@ def main(input_files, schema_directory, output_directory, annotations,
 	report_html_file = fo.join_paths(output_directory, [ct.ALLELECALL_REPORT_BASENAME])
 	fo.write_to_file(report_html, report_html_file, 'w', '\n')
 
-	# Copy the JS bundle to the output directory
+	# Copy the JS bundle file to the output directory
 	# When chewBBACA is installed
 	script_path = os.path.dirname(os.path.abspath(__file__))
 	# For development
 	if script_path.endswith('CHEWBBACA') is False:
 		script_path = os.path.dirname(script_path)
 
-	fo.copy_file(fo.join_paths(script_path, [ct.ALLELECALL_EVALUATOR_BUNDLE]),
-				 output_directory)
+	js_bundle = fo.copy_file(fo.join_paths(script_path, [ct.ALLELECALL_EVALUATOR_BUNDLE]), output_directory)
 
 	# Delete all temporary files
 	fo.delete_directory(temp_directory)
