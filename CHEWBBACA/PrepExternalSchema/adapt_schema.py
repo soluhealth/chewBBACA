@@ -429,10 +429,11 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 		else:
 			final_representatives = list(prot_seqs.keys())
 
-		# Write schema file with all alleles
-		# Add locus identifier as prefix to sequence IDs
-		# Some external schemas, such as schemas from cgMLST.org, do not include the locus identifier in the sequence headers
-		locus_data = [[k, v] if locus_id in k else [f'{locus_id}_{k}', v] for k, v in dna_seqs.items()]
+		# Write schema file with all valid alleles
+		# Add locus identifier as prefix to sequence IDs followed only by the allele identifier (exclude any part between the locus ID and allele ID)
+		# Some external schemas, such as schemas from cgMLST.org, include only the allele identifier in the sequence ID
+		locus_data = [[f"{locus_id}_{seqid.split('_')[-1]}", sequence] if len(seqid.split('_')) > 1 # Cases where the sequence ID includes more than just the allele ID
+					  else [f'{locus_id}_{seqid}', sequence] for seqid, sequence in dna_seqs.items()] # Cases where the sequence ID only includes the allele ID
 		locus_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, locus_data)
 		fo.write_lines(locus_lines, locus_file)
 
@@ -441,9 +442,9 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 
 		# Write schema file with representatives
 		# Do not forget to add locus identifier as prefix to sequence IDs if it is not included in the original ID
-		locus_rep_data = [[r, dna_seqs[r]] if locus_id in r else [f'{locus_id}_{r}', dna_seqs[r]] for r in final_representatives]
-		locus_rep_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE,
-										  locus_rep_data)
+		locus_rep_data = [[f"{locus_id}_{rseqid.split('_')[-1]}", dna_seqs[rseqid]] if len(rseqid.split('_')) > 1 # Cases where the sequence ID includes more than just the allele ID
+						  else [f'{locus_id}_{rseqid}', dna_seqs[rseqid]] for rseqid in final_representatives] # Cases where the sequence ID only includes the allele ID
+		locus_rep_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, locus_rep_data)
 		fo.write_lines(locus_rep_lines, locus_short_file)
 
 		# Determine the number of representatives for current locus
@@ -487,7 +488,7 @@ def main(input_files, output_directories, cpu_cores, blast_score_ratio,
 		Allele size variation threshold value stored in the schema
 		config file. The schema adaptation process will only discard
 		alleles below or above the locus size threshold if the
-		´--size-filter´ parameter is provided.
+		`--size-filter` parameter is provided.
 	blast_path : str
 		Path to the directory that contains the BLAST executables.
 	"""

@@ -1072,7 +1072,7 @@ def run_adapt_schema():
 							 'the schema config file. The schema adaptation '
 							 'process will only discard alleles with a size '
 							 'that deviates from the locus length mode +- the '
-							 'size theshold value if the --size-filter parameter '
+							 'size threshold value if the --size-filter parameter '
 							 'is provided.')
 
 	parser.add_argument('--cpu', '--cpu-cores', type=pv.verify_cpu_usage,
