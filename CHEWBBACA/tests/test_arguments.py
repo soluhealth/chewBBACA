@@ -230,12 +230,12 @@ PREPEXTERNALSCHEMA_TEST_EMPTY_DIR = ['chewBBACA.py', 'PrepExternalSchema',
 
 # PrepExternalSchema empty input files
 PREPEXTERNALSCHEMA_TEST_EMPTY_FILES = ['chewBBACA.py', 'PrepExternalSchema',
-									   '-g', 'data/prep_data/empty_files',
+									   '-g', 'data/prepexternalschema_data/empty_files',
 									   '-o', 'adapted_schema']
 
 # PrepExternalSchema files with no data
 PREPEXTERNALSCHEMA_TEST_ZERO_BYTES = ['chewBBACA.py', 'PrepExternalSchema',
-									  '-g', 'data/prep_data/zero_bytes_pair',
+									  '-g', 'data/prepexternalschema_data/zero_bytes_pair',
 									  '-o', 'adapted_schema']
 
 # PrepExternalSchema invalid input path
@@ -243,21 +243,36 @@ PREPEXTERNALSCHEMA_TEST_INVALID_PATH = ['chewBBACA.py', 'PrepExternalSchema',
 										'-g', 'this/path/aint/real',
 										'-o', 'adapted_schema']
 
-# PrepExternalSchema valid input
-PREPEXTERNALSCHEMA_TEST_VALID_INPUT = ['chewBBACA.py', 'PrepExternalSchema',
-									   '-g', 'data/prep_data/valid_input',
-									   '-o', 'preped_schema']
-
 # PrepExternalSchema different file extensions
 PREPEXTERNALSCHEMA_TEST_EXTENSIONS = ['chewBBACA.py', 'PrepExternalSchema',
-									  '-g', 'data/prep_data/file_extensions',
+									  '-g', 'data/prepexternalschema_data/file_extensions/input_data',
 									  '-o', 'preped_schema']
 
 # PrepExternalSchema loci list
 PREPEXTERNALSCHEMA_TEST_GENE_LIST = ['chewBBACA.py', 'PrepExternalSchema',
-									 '-g', 'data/prep_data/file_extensions',
+									 '-g', 'data/prepexternalschema_data/file_extensions/input_data',
 									 '-o', 'preped_schema',
-									 '--gl', 'data/prep_data/test_genes_list/test_genes_extension.txt']
+									 '--gl', 'data/prepexternalschema_data/test_genes_list/test_genes_extension.txt']
+
+# PrepExternalSchema messy but valid input
+PREPEXTERNALSCHEMA_TEST_MESSY_BUT_VALID = ['chewBBACA.py', 'PrepExternalSchema',
+									 '-g', 'data/prepexternalschema_data/messy_but_valid/input_data/ypestis',
+									 '-o', 'preped_schema']
+
+# PrepExternalSchema valid input - EnteroBase format
+PREPEXTERNALSCHEMA_TEST_ENTEROBASE_FORMAT = ['chewBBACA.py', 'PrepExternalSchema',
+									 '-g', 'data/prepexternalschema_data/external_schemas/input_data/EnteroBase_format/senterica',
+									 '-o', 'preped_schema']
+
+# PrepExternalSchema valid input - PubMLST format
+PREPEXTERNALSCHEMA_TEST_PUBMLST_FORMAT = ['chewBBACA.py', 'PrepExternalSchema',
+									 '-g', 'data/prepexternalschema_data/external_schemas/input_data/PubMLST_format/spneumo',
+									 '-o', 'preped_schema']
+
+# PrepExternalSchema valid input - Ridom format
+PREPEXTERNALSCHEMA_TEST_RIDOM_FORMAT = ['chewBBACA.py', 'PrepExternalSchema',
+									 '-g', 'data/prepexternalschema_data/external_schemas/input_data/Ridom_format/saureus',
+									 '-o', 'preped_schema']
 
 # PrepExternalSchema input name includes blank space
 PREPEXTERNALSCHEMA_TEST_BLANK_SPACE = ['chewBBACA.py', 'PrepExternalSchema',

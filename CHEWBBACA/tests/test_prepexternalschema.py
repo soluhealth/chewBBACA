@@ -31,9 +31,12 @@ def args_fixture(request, tmp_path):
 @pytest.mark.parametrize(
 		"args_fixture",
 		[
-		 (ta.PREPEXTERNALSCHEMA_TEST_VALID_INPUT, 'data/prep_data/expected_results_valid'),
-		 (ta.PREPEXTERNALSCHEMA_TEST_EXTENSIONS, 'data/prep_data/expected_results_extension'),
-		 (ta.PREPEXTERNALSCHEMA_TEST_GENE_LIST, 'data/prep_data/expected_results_extension')
+		 (ta.PREPEXTERNALSCHEMA_TEST_ENTEROBASE_FORMAT, 'data/prepexternalschema_data/external_schemas/expected_results/EnteroBase_format_adapted/senterica_adapted'),
+		 (ta.PREPEXTERNALSCHEMA_TEST_PUBMLST_FORMAT, 'data/prepexternalschema_data/external_schemas/expected_results/PubMLST_format_adapted/spneumo_adapted'),
+		 (ta.PREPEXTERNALSCHEMA_TEST_RIDOM_FORMAT, 'data/prepexternalschema_data/external_schemas/expected_results/Ridom_format_adapted/saureus_adapted'),
+		 (ta.PREPEXTERNALSCHEMA_TEST_MESSY_BUT_VALID, 'data/prepexternalschema_data/messy_but_valid/expected_results/ypestis_adapted'),
+		 (ta.PREPEXTERNALSCHEMA_TEST_EXTENSIONS, 'data/prepexternalschema_data/file_extensions/expected_results'),
+		 (ta.PREPEXTERNALSCHEMA_TEST_GENE_LIST, 'data/prepexternalschema_data/file_extensions/expected_results'),
 		],
 		indirect=True
 )
