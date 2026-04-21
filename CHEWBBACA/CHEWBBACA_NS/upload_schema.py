@@ -937,6 +937,7 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 	hashed_files = {fo.hash_file(file, 'blake2b'): file for file in fasta_paths}
 	print('Determining data to upload...')
 	absent_loci = fasta_paths
+
 	if upload_type[0] == 'incomplete':
 		loci_info, absent_loci, fasta_paths = schema_completedness(nomenclature_server, species_id,
 																   upload_type[1], headers_get,
@@ -981,8 +982,7 @@ def main(schema_directory, species_id, schema_name, loci_prefix,
 	prot_files = [r[1] for r in qc_results]
 
 	# Determine loci missing annotations
-	miss_annotation = [os.path.basename(pf.split('_protein')[0]) for pf in prot_files
-					   if pf.split('_protein')[0] + '.fasta' in absent_loci]
+	miss_annotation = [fo.file_basename(locus, False) for locus in absent_loci]
 
 	print('Missing annotations for {0} loci'.format(len(miss_annotation)))
 
