@@ -1335,14 +1335,20 @@ def select_highest_scores(blast_outfile, id_mapping):
 	if id_mapping is not None:
 		blast_results = [[id_mapping[r[0]]] + r[1:4] + [id_mapping[r[4]]] + r[5:] for r in blast_results]
 	# Sort results based on decreasing raw score
-	blast_results = im.sort_iterable(blast_results,
-									 lambda x: int(x[5]),
-									 reverse=True)
-
+	# The output format of BLAST is tabular with the following columns:
+	# 0: query sequence identifier
+	# 1: start position of the alignment in the query sequence
+	# 2: end position of the alignment in the query sequence
+	# 3: length of the query sequence
+	# 4: subject sequence identifier
+	# 5: length of the subject sequence
+	# 6: raw score of the alignment
+	blast_results = im.sort_iterable(blast_results, lambda x: int(x[6]), reverse=True)
 	# Select matches with highest score for each target
 	best_matches = {}
 	for result in blast_results:
-		# Only get the best raw score for each target
+		# Only get the first result for each target
+		# Since the results are sorted by decreasing score, it will be the best score for that target
 		if result[4] not in best_matches:
 			best_matches[result[4]] = result
 
@@ -2348,7 +2354,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 		self_scores = fo.pickle_loader(self_score_file)
 	print(f'Representative BLASTp self-scores stored in {self_score_file}')
 
-	# Create Kmer index for representatives
+	# Create k-mer index for representatives
 	print('Creating minimizer index for representative alleles...')
 	representatives = im.kmer_index(concat_reps, 5)
 	print(f'Created index with {len(representatives)} distinct minimizers for {len(loci_files)} loci.')
@@ -2418,7 +2424,7 @@ def allele_calling(fasta_files, schema_directory, temp_directory,
 															 blastp_path,
 															 config['CPU cores'],
 															 blastdb_aliastool_path,
-															 True)
+															 True) # Set to True to BLAST cluster representatives against all clustered sequences
 
 		blast_files = im.flatten_list(blast_results)
 

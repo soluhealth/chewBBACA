@@ -331,7 +331,8 @@ def create_schema_seed(fasta_files, output_directory, schema_name, ptf_path,
 													inverse_id_mapping,
 													clustering_dir, blast_db,
 													blastp_path, cpu_cores,
-													blastdb_aliastool_path)
+													blastdb_aliastool_path,
+													False) # Set to False to perform all-vs-all BLASTp instead of representatives vs clustered sequences
 
 		blast_files = im.flatten_list(blast_results)
 

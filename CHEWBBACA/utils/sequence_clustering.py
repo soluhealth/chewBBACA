@@ -426,8 +426,8 @@ def representative_pruner(clusters, sim_cutoff):
 	return [pruned_clusters, excluded]
 
 
-def cluster_blaster(seqids, sequences, output_directory,
-					blast_path, blastdb_path, blastdb_aliastool_path, only_rep=False):
+def cluster_blaster(seqids, sequences, output_directory, blast_path,
+					blastdb_path, blastdb_aliastool_path, rep_vs_all=False):
 	"""Align sequences in the same cluster with BLAST.
 
 	Parameters
@@ -445,6 +445,12 @@ def cluster_blaster(seqids, sequences, output_directory,
 		Path to BLAST executables
 	blastdb_path : str
 		Path to a BLAST database.
+	blastdb_aliastool_path : str
+		Path to the blastalias_tool executable to convert
+		seqid files to binary format.
+	rep_vs_all : bool
+		If True, only BLAST representatives against all other
+		sequences in the cluster.
 
 	Returns
 	-------
@@ -457,39 +463,33 @@ def cluster_blaster(seqids, sequences, output_directory,
 
 	out_files = []
 	for cluster_id in seqids:
-		ids_file = os.path.join(output_directory,
-								'{0}_ids.txt'.format(cluster_id[0]))
+		ids_file = os.path.join(output_directory, f"{cluster_id[0]}_ids.txt")
 
-		fasta_file = os.path.join(output_directory,
-								  '{0}_protein.fasta'.format(cluster_id[0]))
+		fasta_file = os.path.join(output_directory, f"{cluster_id[0]}_protein.fasta")
 
-		if only_rep is False:
+		if rep_vs_all is False:
+			# Create FASTA file with all sequences in the cluster to BLAST against each other
 			with open(ids_file, 'r') as clstr:
 				cluster_ids = [l.strip() for l in clstr.readlines()]
-			# Create file with protein sequences
 			fao.get_sequences_by_id(indexed_fasta, cluster_ids, fasta_file)
-		else:
+		elif rep_vs_all is True:
+			# Create FASTA file with representative sequence to BLAST against all other sequences in the cluster
 			fao.get_sequences_by_id(indexed_fasta, [cluster_id[1]], fasta_file)
 
-		blast_output = os.path.join(output_directory,
-									'{0}_blastout.tsv'.format(cluster_id[0]))
+		blast_output = os.path.join(output_directory, f"{cluster_id[0]}_blastout.tsv")
 
-		binary_file = f'{ids_file}.bin'
-		blast_std = bw.run_blastdb_aliastool(blastdb_aliastool_path,
-												ids_file,
-												binary_file)
+		binary_file = f"{ids_file}.bin"
+		blast_std = bw.run_blastdb_aliastool(blastdb_aliastool_path, ids_file, binary_file)
 		ids_file = binary_file
 		# Use subprocess to capture errors and warnings
-		blast_std = bw.run_blast(blast_path, blastdb_path, fasta_file,
-								 blast_output, 1, 1,
-								 ids_file)
+		blast_std = bw.run_blast(blast_path, blastdb_path, fasta_file, blast_output, 1, 1, ids_file)
 
 		out_files.append(blast_output)
 
 	return out_files
 
 
-def blast_seqids(clusters, output_directory, only_rep, id_mapping):
+def blast_seqids(clusters, output_directory, rep_vs_all, id_mapping):
 	"""Create files with the identifiers of the sequences in each cluster.
 
 	Parameters
@@ -504,6 +504,14 @@ def blast_seqids(clusters, output_directory, only_rep, id_mapping):
 	output_directory : str
 		Path to the directory where files with identifiers
 		will be created.
+	rep_vs_all : bool
+		If True, only BLAST representatives against all other
+		sequences in the cluster.
+	id_mapping : dict or None
+		Dictionary with original sequence identifiers as keys
+		and the identifiers used in the renamed FASTA file
+		used to create the BLAST database as values. If None,
+		the original identifiers will be used.
 
 	Returns
 	-------
@@ -513,9 +521,12 @@ def blast_seqids(clusters, output_directory, only_rep, id_mapping):
 	ids_to_blast = []
 	for rep in clusters:
 		cluster_file = os.path.join(output_directory, f'{rep}_ids.txt')
-		if only_rep is False:
+		# Get the seqids for all clustered sequences, including the representative, to BLAST all sequences in the cluster against each other
+		if rep_vs_all is False:
 			cluster_ids = [rep] + [seqid[0] for seqid in clusters[rep]]
-		else:
+		# Get the seqids for all clustered sequences to BLAST the representative against them
+		# Do not include representative as it will be included in the FASTA file to BLAST against all clustered sequences
+		elif rep_vs_all is True:
 			cluster_ids = [seqid[0] for seqid in clusters[rep]]
 
 		# Convert IDs to those used in the renamed FASTA used to create the BLAST DB
