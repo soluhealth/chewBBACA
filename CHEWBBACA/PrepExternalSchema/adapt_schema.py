@@ -221,8 +221,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 
 		# Create paths to gene files in new schema
 		locus_file = fo.join_paths(schema_path, [f'{locus_id}.fasta'])
-		locus_short_file = fo.join_paths(schema_short_path,
-										 [f'{locus_id}_short.fasta'])
+		locus_short_file = fo.join_paths(schema_short_path, [f'{locus_id}_short.fasta'])
 
 		# Create temp directory for current gene
 		locus_temp_dir = fo.join_paths(schema_path, [f'{locus_id}_temp'])
@@ -290,14 +289,13 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			final_representatives.append(longest)
 
 			# Create FASTA file with distinct protein sequences
-			protein_file = fo.join_paths(locus_temp_dir,
-										 [f'{locus_id}_protein.fasta'])
+			protein_file = fo.join_paths(locus_temp_dir, [f'{locus_id}_protein.fasta'])
 			protein_data = [[i, prot_seqs[i]] for i in ids_to_blast]
 			protein_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, protein_data)
 			fo.write_lines(protein_lines, protein_file)
 
 			# Shorten sequence IDs to avoid issues with long identifiers when creating BLAST DBs
-			lcl_proteins = fo.join_paths(locus_temp_dir, [protein_file.replace('.fasta', '_LCL.fasta')])
+			lcl_proteins = protein_file.replace('.fasta', '_LCL.fasta')
 			# Use 'lcl|SEQ' as prefix to avoid issues where makeblastdb modifies the IDs
 			_ = fao.integer_headers(protein_file, lcl_proteins, start=1, limit=50000, prefix=ct.BLASTDB_LCL_PREFIX, id_map=True)
 			# Create BLASTdb with all distinct proteins
@@ -307,7 +305,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			fo.remove_files([lcl_proteins])
 
 			# Create a second FASTA file with the sequence ID format returned by BLAST ('SEQ' instead of 'lcl|SEQ')
-			seq_proteins = fo.join_paths(locus_temp_dir, [protein_file.replace('.fasta', '_SEQ.fasta')])
+			seq_proteins = protein_file.replace('.fasta', '_SEQ.fasta')
 			id_mapping = fao.integer_headers(protein_file, seq_proteins, start=1, limit=50000, prefix=ct.BLASTDB_SEQ_PREFIX, id_map=True)
 			# Return inverse mapping to convert original IDs to renamed IDs for BLASTp
 			inverse_id_mapping = im.invert_dictionary(id_mapping)
@@ -319,8 +317,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 			# all non-representatives have a representative
 			while len(set(ids_to_blast) - set(representatives)) != 0:
 				# Create FASTA file with representative alleles
-				rep_file = fo.join_paths(locus_temp_dir,
-										 [f'{locus_id}_rep_protein.fasta'])
+				rep_file = fo.join_paths(locus_temp_dir, [f'{locus_id}_rep_protein.fasta'])
 				rep_protein_data = [[r, prot_seqs[r]] for r in representatives]
 				rep_protein_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, rep_protein_data)
 				fo.write_lines(rep_protein_lines, rep_file)
@@ -365,8 +362,7 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 				ids_file = binary_file
 
 				# BLAST representatives against non-represented
-				blast_output = fo.join_paths(locus_temp_dir,
-											 [f'{locus_id}_blast_out.tsv'])
+				blast_output = fo.join_paths(locus_temp_dir, [f'{locus_id}_blast_out.tsv'])
 				# Set 'max_target_seqs' to huge number because BLAST only
 				# returns 500 hits by default
 				blast_std = bw.run_blast(blastp_path, blastp_db, rep_file,
@@ -429,10 +425,11 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 		else:
 			final_representatives = list(prot_seqs.keys())
 
-		# Write schema file with all alleles
-		# Add locus identifier as prefix to sequence IDs
-		# Some external schemas, such as schemas from cgMLST.org, do not include the locus identifier in the sequence headers
-		locus_data = [[k, v] if locus_id in k else [f'{locus_id}_{k}', v] for k, v in dna_seqs.items()]
+		# Write schema file with all valid alleles
+		# Add locus identifier as prefix to sequence IDs followed only by the allele identifier (exclude any part between the locus ID and allele ID)
+		# Some external schemas, such as schemas from cgMLST.org, include only the allele identifier in the sequence ID
+		# Split sequence ID and keep only the last part as allele identifier
+		locus_data = [[f"{locus_id}_{seqid.split('_')[-1]}", sequence] for seqid, sequence in dna_seqs.items()] # Works for both cases where the sequence ID includes the locus identifier and where it does not include it (only allele ID)
 		locus_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, locus_data)
 		fo.write_lines(locus_lines, locus_file)
 
@@ -441,9 +438,8 @@ def adapt_loci(loci, schema_path, schema_short_path, bsr, min_len,
 
 		# Write schema file with representatives
 		# Do not forget to add locus identifier as prefix to sequence IDs if it is not included in the original ID
-		locus_rep_data = [[r, dna_seqs[r]] if locus_id in r else [f'{locus_id}_{r}', dna_seqs[r]] for r in final_representatives]
-		locus_rep_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE,
-										  locus_rep_data)
+		locus_rep_data = [[f"{locus_id}_{rseqid.split('_')[-1]}", dna_seqs[rseqid]] for rseqid in final_representatives] # Works for both cases where the sequence ID includes the locus identifier and where it does not include it (only allele ID)
+		locus_rep_lines = fao.fasta_lines(ct.FASTA_RECORD_TEMPLATE, locus_rep_data)
 		fo.write_lines(locus_rep_lines, locus_short_file)
 
 		# Determine the number of representatives for current locus
@@ -487,7 +483,7 @@ def main(input_files, output_directories, cpu_cores, blast_score_ratio,
 		Allele size variation threshold value stored in the schema
 		config file. The schema adaptation process will only discard
 		alleles below or above the locus size threshold if the
-		´--size-filter´ parameter is provided.
+		`--size-filter` parameter is provided.
 	blast_path : str
 		Path to the directory that contains the BLAST executables.
 	"""

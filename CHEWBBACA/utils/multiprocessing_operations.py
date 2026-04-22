@@ -163,7 +163,7 @@ def distribute_loci(inputs, cores, method):
 	inputs : list
 		List with one sublist per locus. Each sublist has
 		a locus identifier, the total number of sequences
-		and sequence mean legth for that locus.
+		and sequence mean length for that locus.
 	cores : int
 		The number of loci groups that should be created.
 		Based on the number of CPU cores that will be
@@ -194,8 +194,7 @@ def distribute_loci(inputs, cores, method):
 		elif method == 'seqcount+length':
 			splitted_values[i] += locus[1] * locus[4]
 		splitted_ids[i].append(locus[0])
-		# at the end of each iteration, choose the sublist
-		# with lowest criterion value
+		# At the end of each iteration, choose the sublist with the lowest criterion value
 		i = splitted_values.index(min(splitted_values))
 
 	return splitted_ids

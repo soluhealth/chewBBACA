@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.5.4 - 2026-04-22
+
+This release adds the following bug fixes:
+
+- The file with the cgMLST MSA was missing from the output directory created by the `AlleleCallEvaluator` module since the release of the `ComputeMSA` module (thanks to @victor5lm who reported this issue in https://github.com/B-UMMI/chewBBACA/issues/235). This change was unintended. The file with cgMLST MSA was re-added as one of the output files from the `AlleleCallEvaluator` module (`protein_msa.fasta` file). Simplified the conditions used to determine which steps to run.
+- Made the definition of the sequence headers for the adapted schemas created by the `PrepExternalSchema` less rigid to better deal with unexpected headers. Added tests to validate schema adaptation for multiple external schema formats (e.g., [EnteroBase](https://enterobase.warwick.ac.uk/), [PubMLST](https://pubmlst.org/), and [Ridom](https://www.cgmlst.org/ncs)).
+- Fixed the parsing of the file with loci annotations in the `LoadSchema` module.
+- Fixed the creation of the paths to intermediate FASTA files used by BLASTp to determine representative alleles during schema adaptation. The paths were not properly created when the `SyncSchema` module called the `PrepExternalSchema` module using relative paths.
+- Changed the index value used by the `select_highest_scores` function to sort and select the highest scoring BLASTp matches per target from `5` to `6`. The results were being sorted based on the length of the target sequences instead of the alignment raw score. This issue would not allow to identify the best scoring alignment in some cases, potentially leading to some sequences not being classified if a lower scoring alignment was selected. Fixing this issue results in a slight increase in the accuracy of the allele calling (thanks to @andreaderuvo for reporting this issue in https://github.com/B-UMMI/chewBBACA/issues/234).
+
 ## 3.5.3 - 2026-03-10
 
 - Fixed issue on the PrepExternalSchema module related to reading empty FASTA files after attempting to translate FASTA files from external schemas that contained no valid alleles. This issue did not affect the end result because the PrepExternalSchema module would detect that no alleles could be translated, skipping the next steps for that locus. However, not reading empty FASTA files avoids a warning raised by Biopython that could lead to errors in future releases.

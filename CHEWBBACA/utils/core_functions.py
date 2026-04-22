@@ -718,7 +718,7 @@ def cluster_intra_filter(clusters, sequences, word_size,
 
 def blast_clusters(clusters, sequences, id_mapping, output_directory,
 				   blast_db, blastp_path, cpu_cores,
-				   blastdb_aliastool_path, only_rep=False):
+				   blastdb_aliastool_path, rep_vs_all=False):
 	"""Use BLAST to align sequences in the same clusters.
 
 	Parameters
@@ -743,7 +743,10 @@ def blast_clusters(clusters, sequences, id_mapping, output_directory,
 	blastdb_aliastool_path : str
 		Path to the blastalias_tool executable to convert
 		seqid files to binary format.
-	only_rep
+	rep_vs_all : bool
+		If True, only BLAST representatives against all other
+		sequences in the cluster. If False, BLAST all sequences
+		in the cluster against all other sequences in the cluster.
 
 	Returns
 	-------
@@ -755,14 +758,14 @@ def blast_clusters(clusters, sequences, id_mapping, output_directory,
 	fo.create_directory(blastp_results_dir)
 
 	# Create TXT files with the list of sequences per cluster
-	seqids_to_blast = sc.blast_seqids(clusters, blastp_results_dir, only_rep, id_mapping)
+	seqids_to_blast = sc.blast_seqids(clusters, blastp_results_dir, rep_vs_all, id_mapping)
 
 	# Distribute clusters per available cores
 	process_num = 20 if cpu_cores <= 20 else cpu_cores
 	splitted_seqids = mo.distribute_loci(seqids_to_blast, process_num, 'seqcount')
 
 	common_args = [sequences, blastp_results_dir, blastp_path,
-				   blast_db, blastdb_aliastool_path, only_rep, sc.cluster_blaster]
+				   blast_db, blastdb_aliastool_path, rep_vs_all, sc.cluster_blaster]
 	splitted_seqids = [[s, *common_args] for s in splitted_seqids]
 
 	# BLAST sequences in a cluster against every sequence in that cluster

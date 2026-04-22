@@ -714,9 +714,9 @@ def retrieve_latest(local_date, schema_uri, headers_get, ns_date):
 def main(schema_directory, cpu_cores, nomenclature_server,
          submit, blast_path):  # update_profiles):
 
-    # get ns configs
+    # Get ns configs
     local_date, schema_uri = pv.read_configs(schema_directory, '.ns_config')
-    # get schema and species identifiers
+    # Get schema and species identifiers
     schema_id = schema_uri.split('/')[-1]
     species_id = schema_uri.split('/')[-3]
     if nomenclature_server is None:
@@ -958,39 +958,20 @@ def main(schema_directory, cpu_cores, nomenclature_server,
 
     # Change pickled files to FASTA files
     for locus, pick in pickled_loci.items():
-        rearranged = pickle_to_fasta(locus, pick, temp_dir, results,
-                                     rearranged)
+        rearranged = pickle_to_fasta(locus, pick, temp_dir, results, rearranged)
 
-    # update pre-computed tables
-    # pre_computed_dir = fo.join_paths(schema_directory, ['pre_computed'])
-    # if os.path.isdir(pre_computed_dir):
-    #     schema_loci_fullpath = [fo.join_paths(schema_directory, [file])
-    #                             for file in genes]
-    #     loci_to_call = {file: schema_loci_fullpath.index(file)
-    #                     for file in schema_loci_fullpath}
-    #     update_hash_tables(rearranged, loci_files, loci_to_call,
-    #                        schema_params['translation_table'][0],
-    #                        pre_computed_dir)
     # Delete pre-computed directory
-    # Future versions will change the pre-computed hash tables
+    # Future versions should modify the pre-computed hash tables
     pre_computed_dir = fo.join_paths(schema_directory, ['pre_computed'])
     if os.path.isdir(pre_computed_dir):
         fo.delete_directory(pre_computed_dir)
-
-    # change identifiers in SQLite DB
-    # if len(rearranged) > 0 and update_profiles is True:
-    #     print('\nUpdating local allele identifiers...')
-    #     altered = ps.update_profiles(schema_directory, rearranged)
-    #     if altered is not None:
-    #         print('Updated {0} profiles.\n'.format(altered))
-    #     else:
-    #         print('Could not find local SQLite database to upload profiles.\n')
 
     # Re-determine the representative sequences
     schema_short_directory = fo.join_paths(schema_directory, ['short'])
     if attributed > 0 or count > 0:
         loci_list = fo.join_paths(schema_directory, [ct.LOCI_LIST])
         loci_list, total_loci = pv.check_input_type(temp_dir, loci_list)
+
         adapt_schema.main(loci_list, [schema_directory, schema_short_directory],
                           cpu_cores, float(schema_params['bsr'][0]),
                           0, 11, None, blast_path)
@@ -1003,7 +984,7 @@ def main(schema_directory, cpu_cores, nomenclature_server,
 
         fo.remove_files(files)
 
-        # get last modification date
+        # Get last modification date
         last_modified = cr.simple_get_request(nomenclature_server, headers_get,
                                               ['species', species_id,
                                                'schemas', schema_id,
@@ -1011,7 +992,7 @@ def main(schema_directory, cpu_cores, nomenclature_server,
         last_modified = (last_modified.json()).split(' ')[-1]
         server_time = last_modified
 
-        # update NS config file with latest server time
+        # Update NS config file with latest server time
         ns_configs = fo.join_paths(schema_directory, ['.ns_config'])
         fo.pickle_dumper([server_time, schema_uri], ns_configs)
 
@@ -1022,14 +1003,14 @@ def main(schema_directory, cpu_cores, nomenclature_server,
           '{2} for {3} loci. '.format(count, len(pickled_loci),
                                       attributed, len(not_in_ns)))
 
-    # delete temp directory
+    # Delete temp directory
     shutil.rmtree(temp_dir)
 
-    # delete pre-computed loci mode values
+    # Delete pre-computed loci mode values
     mode_file = fo.join_paths(schema_directory, ['loci_modes'])
     fo.remove_files([mode_file])
 
-    # delete pre-computed BSR values from 'short' directory
+    # Delete pre-computed BSR values from 'short' directory
     # representatives might have changed and BSR values are outdated
     bsr_file = fo.join_paths(schema_directory, ['short', 'self_scores'])
     fo.remove_files([bsr_file])

@@ -36,14 +36,25 @@ Parameters
                                 process (chewie resets to a lower value if it is equal to or
                                 exceeds the totalnumber of available CPU cores/threads) (default: 1).
 
-    --light                     (Optional) Do not compute the presence-absence matrix, the distance matrix and
+    --light                     (Optional) Do not compute the presence-absence matrix, the distance matrix,
                                 and the Neighbor-Joining tree (default: False).
 
-    --no-pa                     (Optional) Do not compute the presence-absence matrix (default: False).
+    --no-pa                     (Optional) Do not include the presence-absence matrix in the report.
+                                The presence-absence is still computed and included in the 
+                                output directory. Use this parameter if the presence-absence
+                                matrix is not relevant for the evaluation or if the number
+                                of genomes is too high and displaying the matrix would affect
+                                the responsiveness of the report (default: False).
 
-    --no-dm                     (Optional) Do not compute the distance matrix (default: False).
+    --no-dm                     (Optional) Do not compute the distance matrix. Use this parameter if the
+                                distance matrix is not relevant for the evaluation or if the number
+                                of genomes is too high and computing and/or displaying the distance
+                                matrix would become impracticable with the available resources (default: False).
 
-    --no-tree                   (Optional) Do not compute the Neighbor-Joining tree (default: False).
+    --no-tree                   (Optional) Do not compute the Neighbor-Joining tree. Use this parameter if the
+                                tree is not relevant for the evaluation or if the number of genomes
+                                is too high and computing the tree would become impracticable with
+                                the available resources (default: False).
 
     --cg-alignment              (Optional) Compute the MSA of the core genome loci, even if `--no-tree` is
                                 provided (default: False).
@@ -54,21 +65,18 @@ Outputs
 ::
 
    OutputFolderName
-   ├── distance_matrix_symmetric.tsv
-   ├── cgMLST_MSA.fasta
-   ├── cgMLST_profiles.tsv
    ├── allelecall_report.html
    ├── masked_profiles.tsv
    ├── presence_absence.tsv
+   ├── cgMLST_profiles.tsv
+   ├── distance_matrix_symmetric.tsv
+   ├── protein_msa.fasta
+   ├── cgMLST.tree
    └── report_bundle.js
 
-- A TSV file, ``distance_matrix_symmetric.tsv``, that contains the symmetric distance matrix. The matrix contains the pairwise allelic distances computed based on the set of core loci (shared by 100% of the samples).
+Brief description of each output file:
 
-- A FASTA file, ``cgMLST_MSA.fasta``, that contains the MSA of the core loci. For each locus in the core genome, the alleles found in all samples are translated and aligned with `MAFFT <https://mafft.cbrc.jp/alignment/software/>`_. The alignment files are concatenated to generate the full core genome alignment.
-
-- A TSV file, ``cgMLST_profiles.tsv``, that contains the allelic profiles for the set of core loci.
-
-- The HTML report, ``allelecall_report.html``. To visualize the report, open this file with a web browser. The report contains the following components:
+- ``allelecall_report.html``: The report HTML file that can be opened with a web browser. The report contains the following components:
 
   - A table with the total number of samples, total number of loci, total number of coding sequences (CDSs) extracted from the samples, total number of CDSs classified and totals per classification type.
   - A tab panel with stacked bar charts for the classification type counts per sample and per locus.
@@ -78,17 +86,25 @@ Outputs
   - A Heatmap chart representing the allelic distance matrix for all samples in the dataset.
   - A tree drawn with `Phylocanvas.gl <https://www.npmjs.com/package/@phylocanvas/phylocanvas.gl>`_ based on the Neighbor-Joining (NJ) tree computed by `FastTree <http://www.microbesonline.org/fasttree/>`_.
 
-- A TSV file, ``masked_profiles.tsv``, which contains the masked allelic profiles (the profiles in the ``results_alleles.tsv`` file are masked to remove *INF-* prefixes and substitute all *non-EXC* and *non-INF* classification by ``0``).
+- ``masked_profiles.tsv``: A TSV file containing the masked input profiles (the allelic profiles in the ``results_alleles.tsv`` file are masked to remove *INF-* prefixes and substitute all *non-EXC* and *non-INF* classification by ``0``).
 
-- A TSV file, ``presence_absence.tsv``, that contains the loci presence-absence matrix.
+- ``presence_absence.tsv``: A TSV file containing the a loci presence-absence matrix computed based on the input profiles.
 
-- A JavaScript bundle file, ``report_bundle.js``, necessary to visualize the report.
+- ``cgMLST_profiles.tsv``: A TSV file that contains the allelic profiles for the set of core loci.
+
+- ``distance_matrix_symmetric.tsv``: A TSV file that contains the symmetric distance matrix. The matrix contains the pairwise allelic distances computed based on the set of core loci (shared by 100% of the samples).
+
+- ``protein_msa.fasta``: A FASTA file containing the protein MSA for the core loci. For each locus in the core genome, the alleles found in all samples are translated and aligned with `MAFFT <https://mafft.cbrc.jp/alignment/software/>`_. The alignment files are concatenated to generate the full protein MSA. This file is created by calling the :doc:`ComputeMSA </user/modules/ComputeMSA>` module
+
+- ``cgMLST.tree``: A file that contains the Neighbor-Joining tree computed by FastTree in Newick format.
+
+- ``report_bundle.js``: A JavaScript bundle file, necessary to generate the interactive HTML report.
 
 .. warning::
-  The JS bundle is necessary to visualize the HTML report. Do not move or delete this file.
+  The JS bundle is necessary to generate the interactive HTML report. Do not move or delete this file.
   
 .. note::
-  If you want to share the report, simply compress the output folder and share the compressed archive. The receiver can simply uncompress the archive and open the HTML file with a web browser.
+  If you want to share the report, simply compress the output folder and share the compressed archive. The receiver can simply uncompress the archive and open the report HTML file with a web browser.
 
 Report Components
 -----------------

@@ -707,8 +707,7 @@ def run_evaluate_calls():
 
 	parser.add_argument('-a', '--annotations', type=str, required=False,
 						dest='annotations',
-						help='Path to the TSV file created by the '
-							 'UniprotFinder module.')
+						help='Path to the TSV file created by the UniprotFinder module.')
 
 	parser.add_argument('--cpu', '--cpu-cores', type=pv.verify_cpu_usage,
 						required=False, default=1, dest='cpu_cores',
@@ -720,25 +719,35 @@ def run_evaluate_calls():
 
 	parser.add_argument('--light', action='store_true', required=False,
 						dest='light',
-						help='Do not compute the presence-absence matrix, '
-							 'the distance matrix and the Neighbor-Joining tree.')
+						help='Do not compute the presence-absence matrix, the distance matrix,'
+							 ' and the Neighbor-Joining tree.')
 
 	parser.add_argument('--no-pa', action='store_true', required=False,
 						dest='no_pa',
-						help='Do not compute the presence-absence matrix.')
+						help='Do not include the presence-absence matrix in the report. '
+							 'The presence-absence is still computed and included in the '
+							 'output directory. Use this parameter if the presence-absence '
+							 'matrix is not relevant for the evaluation or if the number '
+							 'of genomes is too high and displaying the matrix would affect'
+							 ' the responsiveness of the report.')
 
 	parser.add_argument('--no-dm', action='store_true', required=False,
 						dest='no_dm',
-						help='Do not compute the distance matrix.')
+						help='Do not compute the distance matrix. Use this parameter if the '
+							 'distance matrix is not relevant for the evaluation or if the number '
+							 'of genomes is too high and computing and/or displaying the distance '
+							 'matrix would become impracticable with the available resources.')
 
 	parser.add_argument('--no-tree', action='store_true', required=False,
 						dest='no_tree',
-						help='Do not compute the Neighbor-Joining tree.')
+						help='Do not compute the Neighbor-Joining tree. Use this parameter if the '
+							 'tree is not relevant for the evaluation or if the number of genomes '
+							 'is too high and computing the tree would become impracticable with '
+							 'the available resources.')
 
 	parser.add_argument('--cg-alignment', action='store_true', required=False,
 						dest='cg_alignment',
-						help='Compute the MSA of the core genome loci, even '
-							 'if `--no-tree` is provided.')
+						help='Compute the MSA for the core loci, even if `--no-tree` is provided.')
 
 	args = parser.parse_args()
 	del args.AlleleCallEvaluator
@@ -1063,7 +1072,7 @@ def run_adapt_schema():
 							 'the schema config file. The schema adaptation '
 							 'process will only discard alleles with a size '
 							 'that deviates from the locus length mode +- the '
-							 'size theshold value if the --size-filter parameter '
+							 'size threshold value if the --size-filter parameter '
 							 'is provided.')
 
 	parser.add_argument('--cpu', '--cpu-cores', type=pv.verify_cpu_usage,

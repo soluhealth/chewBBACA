@@ -610,7 +610,7 @@ def create_short(schema_files, schema_dir):
 
 def copy_file(source, destination):
 	"""Copy a file to specified destination."""
-	shutil.copy(source, destination)
+	return shutil.copy(source, destination)
 
 
 def move_file(source, destination):
