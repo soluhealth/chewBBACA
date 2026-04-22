@@ -48,7 +48,7 @@ Python dependencies
 * plotly>=6.3.1
 * SPARQLWrapper>=2.0.0
 * requests>=2.27.1
-* pandas==2.3.3
+* pandas>=2.3.3
 * pyrodigal>=3.0.0 (for chewBBACA>=3.3.0)
 
 .. note::
