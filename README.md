@@ -1,7 +1,7 @@
 # SOLU INSTRUCTIONS
 ## Deployment
 Build image locally
-`docker build . --tag solu/chewBBACA:$VERSION`
+`docker build . --tag solu/chewbbaca:$VERSION`
 ## Release
 ```
 gcloud auth login
