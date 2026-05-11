@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-IMAGE="chewBBACA"
+IMAGE="chewbbaca"
 
 while getopts :v:: opt; do
   case ${opt} in
