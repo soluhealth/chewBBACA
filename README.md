@@ -1,3 +1,13 @@
+# SOLU INSTRUCTIONS
+## Deployment
+Build image locally
+`docker build . --tag solu/chewbbaca:$VERSION`
+## Release
+```
+gcloud auth login
+./release.sh -v <VERSION>
+gcloud auth revoke
+```
 
 [![PyPI](https://img.shields.io/badge/Install%20with-PyPI-blue)](https://pypi.org/project/chewBBACA/#description)
 [![Bioconda](https://img.shields.io/badge/Install%20with-bioconda-green)](https://anaconda.org/bioconda/chewbbaca)

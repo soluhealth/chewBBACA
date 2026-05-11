@@ -1,4 +1,6 @@
-FROM ubuntu:22.04
+# All bundled tools (BLAST 2.9.0, MAFFT .deb, FastTree binary) ship x86_64 only,
+# so pin the image to amd64 — it runs under emulation on arm64 hosts (Apple Silicon).
+FROM --platform=linux/amd64 ubuntu:22.04
 MAINTAINER UMMI, imm-bioinfo@medicina.ulisboa.pt
 
 # Create directory to store files
